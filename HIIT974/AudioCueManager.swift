@@ -13,24 +13,21 @@ final class AudioCueManager {
     var onPrevious: (() -> Void)?
 
     private let synthesizer = AVSpeechSynthesizer()
-    private var audioEngine: AVAudioEngine?
-    private var playerNode: AVAudioPlayerNode?
-    private var beepBuffer: AVAudioPCMBuffer?
+    private var beepPlayer: AVAudioPlayer?
 
     // MARK: - Lifecycle
 
     func configure() {
         configureSession()
-        setupAudioEngine()
+        setupBeepPlayer()
         setupRemoteControls()
     }
 
     func deactivate() {
         clearNowPlayingInfo()
         clearRemoteControls()
-        audioEngine?.stop()
-        audioEngine = nil
-        playerNode  = nil
+        beepPlayer?.stop()
+        beepPlayer = nil
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
 
@@ -46,8 +43,9 @@ final class AudioCueManager {
     }
 
     func playBeep() {
-        guard let player = playerNode, let buffer = beepBuffer else { return }
-        player.scheduleBuffer(buffer, completionHandler: nil)
+        guard let player = beepPlayer else { return }
+        player.currentTime = 0
+        player.play()
     }
 
     func announceFinished() {
@@ -82,41 +80,46 @@ final class AudioCueManager {
         }
     }
 
-    private func setupAudioEngine() {
-        guard audioEngine == nil else { return }
-
-        let eng = AVAudioEngine()
-        let player = AVAudioPlayerNode()
-        eng.attach(player)
-        guard let format = AVAudioFormat(standardFormatWithSampleRate: 44100, channels: 1) else { return }
-        eng.connect(player, to: eng.mainMixerNode, format: format)
-
-        // Génère un bip sinus 880 Hz de 100ms avec fade-out
-        let sampleRate = 44100.0
-        let frameCount = AVAudioFrameCount(sampleRate * 0.1)
-        if let buf = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount),
-           let channelData = buf.floatChannelData {
-            buf.frameLength = frameCount
-            let data = channelData[0]
-            let fadeStart = Int(Double(frameCount) * 0.75)
-            for i in 0..<Int(frameCount) {
-                var s = sin(2 * Double.pi * 880 * Double(i) / sampleRate) * 0.55
-                if i > fadeStart {
-                    s *= Double(Int(frameCount) - i) / Double(Int(frameCount) - fadeStart)
-                }
-                data[i] = Float(s)
-            }
-            beepBuffer = buf
-        }
-
+    private func setupBeepPlayer() {
+        guard let data = makeBeepWAV() else { return }
         do {
-            try eng.start()
-            player.play()
-            audioEngine = eng
-            playerNode = player
+            let player = try AVAudioPlayer(data: data, fileTypeHint: AVFileType.wav.rawValue)
+            player.prepareToPlay()
+            beepPlayer = player
         } catch {
-            logger.error("AVAudioEngine: \(error)")
+            logger.error("AVAudioPlayer setup: \(error)")
         }
+    }
+
+    // Génère un bip sinus 880 Hz de 100 ms avec fade-out en WAV PCM 16-bit mono
+    private func makeBeepWAV() -> Data? {
+        let sampleRate = 44100
+        let numSamples = sampleRate / 10
+        let fadeStart  = numSamples * 3 / 4
+
+        var samples = [Int16](repeating: 0, count: numSamples)
+        for i in 0..<numSamples {
+            var amp = sin(2 * .pi * 880.0 * Double(i) / Double(sampleRate)) * 0.55
+            if i > fadeStart {
+                amp *= Double(numSamples - i) / Double(numSamples - fadeStart)
+            }
+            samples[i] = Int16(clamping: Int(amp * Double(Int16.max)))
+        }
+
+        let dataSize = numSamples * 2
+        var wav = Data()
+
+        func u32(_ v: UInt32) { var x = v.littleEndian; withUnsafeBytes(of: &x) { wav.append(contentsOf: $0) } }
+        func u16(_ v: UInt16) { var x = v.littleEndian; withUnsafeBytes(of: &x) { wav.append(contentsOf: $0) } }
+
+        wav.append(contentsOf: "RIFF".utf8); u32(UInt32(36 + dataSize))
+        wav.append(contentsOf: "WAVE".utf8)
+        wav.append(contentsOf: "fmt ".utf8); u32(16); u16(1); u16(1)
+        u32(UInt32(sampleRate)); u32(UInt32(sampleRate * 2)); u16(2); u16(16)
+        wav.append(contentsOf: "data".utf8); u32(UInt32(dataSize))
+        for s in samples { var x = s.littleEndian; withUnsafeBytes(of: &x) { wav.append(contentsOf: $0) } }
+
+        return wav
     }
 
     private func clearRemoteControls() {
