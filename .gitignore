@@ -1,0 +1,44 @@
+# Xcode
+DerivedData/
+build/
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+xcuserdata/
+*.xccheckout
+*.moved-aside
+*.xcuserstate
+*.xcscmblueprint
+
+# Xcode Previews
+*.xcodeproj/project.xcworkspace/xcshareddata/
+
+# Swift Package Manager
+.build/
+Packages/
+Package.resolved
+
+# CocoaPods (not used, precaution)
+Pods/
+*.xcworkspace
+!*.xcodeproj/project.xcworkspace
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+
+# Archives & exports
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Claude
+.claude/
+PLAN.md
