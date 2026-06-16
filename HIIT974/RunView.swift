@@ -38,6 +38,7 @@ struct RunView: View {
         }
         .navigationTitle(workout.name)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .tabBar)
         .toolbarBackground(.hidden, for: .navigationBar)
         .toolbarColorScheme(.dark, for: .navigationBar)
         .navigationBarBackButtonHidden(engine.state == .running || engine.state == .paused)
@@ -71,6 +72,12 @@ struct RunView: View {
             e.audioCue.onSkip = { [weak e] in e?.skip() }
             e.audioCue.onPrevious = { [weak e] in e?.previous() }
             e.audioCue.configure()
+            #if DEBUG
+            // Démarre automatiquement pour la capture d'écran de la séance en cours.
+            if ProcessInfo.processInfo.arguments.contains("-screenshotRun") {
+                e.start()
+            }
+            #endif
         }
         .onDisappear {
             if !runSaved, engine.state == .finished, let startedAt = engine.startedAt {
