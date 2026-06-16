@@ -35,6 +35,13 @@ struct HistoryView: View {
                 }
             }
             .navigationTitle("Historique")
+            .onAppear {
+                #if DEBUG
+                // Seed de démo pour les captures d'écran (DEBUG seulement).
+                guard runs.isEmpty else { return }
+                WorkoutRun.demoRuns().forEach { context.insert($0) }
+                #endif
+            }
         }
     }
 }

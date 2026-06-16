@@ -5,6 +5,9 @@ struct WorkoutListView: View {
     @Query(sort: \Workout.createdAt, order: .forward) private var workouts: [Workout]
     @Environment(\.modelContext) private var context
     @State private var activeSheet: SheetMode?
+    #if DEBUG
+    @State private var screenshotRunWorkout: Workout?
+    #endif
 
     var body: some View {
         NavigationStack {
@@ -51,9 +54,25 @@ struct WorkoutListView: View {
                 }
             }
             .onAppear {
-                guard workouts.isEmpty else { return }
-                Workout.samples.forEach { context.insert($0) }
+                if workouts.isEmpty {
+                    Workout.samples.forEach { context.insert($0) }
+                }
+                #if DEBUG
+                // Deep-links capture d'écran.
+                let args = ProcessInfo.processInfo.arguments
+                if args.contains("-screenshotRun") {
+                    screenshotRunWorkout = workouts.first
+                }
+                if args.contains("-screenshotEditor") {
+                    activeSheet = .create
+                }
+                #endif
             }
+            #if DEBUG
+            .navigationDestination(item: $screenshotRunWorkout) { workout in
+                RunView(workout: workout)
+            }
+            #endif
         }
     }
 }
