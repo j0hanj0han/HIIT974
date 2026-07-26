@@ -60,17 +60,6 @@ struct RunView: View {
         .sensoryFeedback(.impact(flexibility: .rigid), trigger: engine.beepCount)
         .onAppear {
             let e = engine
-            e.audioCue.onPlayPause = { [weak e] in
-                switch e?.state {
-                case .idle:    e?.start()
-                case .running: e?.pause()
-                case .paused:  e?.resume()
-                default: break
-                }
-            }
-            e.audioCue.onStop = { [weak e] in e?.stop() }
-            e.audioCue.onSkip = { [weak e] in e?.skip() }
-            e.audioCue.onPrevious = { [weak e] in e?.previous() }
             e.audioCue.configure()
             #if DEBUG
             // Démarre automatiquement pour la capture d'écran de la séance en cours.

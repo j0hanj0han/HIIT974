@@ -46,12 +46,10 @@ final class TimerEngine {
     let totalSets: Int
     let audioCue = AudioCueManager()
 
-    private let workoutName: String
     private var referenceDate: Date?
     private var referenceRemaining: TimeInterval
     nonisolated(unsafe) private var timer: Timer?
     private var lastBeepSecond = -1
-    private var lastNowPlayingSecond = -1
 
     init(workout: Workout) {
         var built: [Step] = []
@@ -65,7 +63,6 @@ final class TimerEngine {
             }
         }
         steps        = built
-        workoutName  = workout.name
         totalRounds  = workout.rounds
         totalSets    = workout.sets
 
@@ -88,8 +85,7 @@ final class TimerEngine {
     func start() {
         guard state == .idle, !steps.isEmpty else { return }
         currentStepIndex     = 0
-        lastBeepSecond       = -1
-        lastNowPlayingSecond = -1
+        lastBeepSecond = -1
         referenceRemaining   = TimeInterval(steps[0].durationSeconds)
         timeRemaining        = referenceRemaining
         referenceDate        = Date()
@@ -97,7 +93,6 @@ final class TimerEngine {
         state                = .running
         scheduleTimer()
         audioCue.announceSegmentStart(steps[0].phase.label)
-        refreshNowPlaying(isPlaying: true)
     }
 
     func pause() {
@@ -105,7 +100,6 @@ final class TimerEngine {
         snapshotTimeRemaining()
         state = .paused
         cancelTimer()
-        refreshNowPlaying(isPlaying: false)
     }
 
     func resume() {
@@ -113,16 +107,13 @@ final class TimerEngine {
         referenceDate = Date()
         state         = .running
         scheduleTimer()
-        refreshNowPlaying(isPlaying: true)
     }
 
     func stop() {
         cancelTimer()
-        audioCue.clearNowPlayingInfo()
         state                = .idle
         currentStepIndex     = 0
-        lastBeepSecond       = -1
-        lastNowPlayingSecond = -1
+        lastBeepSecond = -1
         beepCount            = 0
         referenceDate        = nil
         startedAt            = nil
@@ -148,13 +139,11 @@ final class TimerEngine {
         if elapsed < 3.0, currentStepIndex > 0 {
             currentStepIndex -= 1
         }
-        lastBeepSecond       = -1
-        lastNowPlayingSecond = -1
+        lastBeepSecond = -1
         referenceRemaining   = TimeInterval(steps[currentStepIndex].durationSeconds)
         timeRemaining        = referenceRemaining
         referenceDate        = Date()
         audioCue.announceSegmentStart(steps[currentStepIndex].phase.label)
-        refreshNowPlaying(isPlaying: true)
 
         if wasPaused {
             state = .paused
@@ -173,8 +162,7 @@ final class TimerEngine {
         while elapsed >= referenceRemaining {
             elapsed -= referenceRemaining
             let next = currentStepIndex + 1
-            lastBeepSecond       = -1
-            lastNowPlayingSecond = -1
+            lastBeepSecond = -1
             if next < steps.count {
                 currentStepIndex   = next
                 referenceRemaining = TimeInterval(steps[next].durationSeconds)
@@ -192,7 +180,6 @@ final class TimerEngine {
         if segmentChanged {
             referenceDate = Date() - elapsed
             audioCue.announceSegmentStart(steps[currentStepIndex].phase.label)
-            refreshNowPlaying(isPlaying: true)
         }
 
         timeRemaining = referenceRemaining - elapsed
@@ -203,25 +190,17 @@ final class TimerEngine {
             beepCount += 1
             audioCue.playBeep()
         }
-
-        let secondsElapsed = Int(elapsed)
-        if secondsElapsed != lastNowPlayingSecond {
-            lastNowPlayingSecond = secondsElapsed
-            refreshNowPlaying(isPlaying: true)
-        }
     }
 
     private func advance() {
         let next = currentStepIndex + 1
-        lastBeepSecond       = -1
-        lastNowPlayingSecond = -1
+        lastBeepSecond = -1
         if next < steps.count {
             currentStepIndex   = next
             referenceRemaining = TimeInterval(steps[next].durationSeconds)
             timeRemaining      = referenceRemaining
             referenceDate      = Date()
             audioCue.announceSegmentStart(steps[next].phase.label)
-            refreshNowPlaying(isPlaying: true)
         } else {
             state         = .finished
             timeRemaining = 0
@@ -235,19 +214,6 @@ final class TimerEngine {
         referenceRemaining = max(0, referenceRemaining - Date().timeIntervalSince(ref))
         timeRemaining      = referenceRemaining
         referenceDate      = nil
-    }
-
-    private func refreshNowPlaying(isPlaying: Bool) {
-        guard let step = currentStep else { return }
-        let dur     = Double(step.durationSeconds)
-        let elapsed = max(0, dur - timeRemaining)
-        audioCue.updateNowPlaying(
-            workoutName: workoutName,
-            segmentLabel: step.phase.label,
-            segmentElapsed: elapsed,
-            segmentDuration: dur,
-            isPlaying: isPlaying
-        )
     }
 
     private func scheduleTimer() {

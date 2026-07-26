@@ -1,16 +1,15 @@
 import AVFoundation
-import MediaPlayer
 import os
 
+/// Cues audibles de la séance : bip de décompte et annonces vocales.
+///
+/// L'app ne déclare **pas** `UIBackgroundModes: audio` : ces cues sont produits
+/// uniquement en avant-plan. La session reste en `.playback` pour passer outre le
+/// bouton silencieux et en `.mixWithOthers` pour se superposer à la musique de
+/// l'utilisateur sans l'interrompre.
 final class AudioCueManager {
 
     private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "TempoHIIT", category: "Audio")
-
-    // Callbacks câblés depuis RunView → lock screen transport controls
-    var onPlayPause: (() -> Void)?
-    var onStop: (() -> Void)?
-    var onSkip: (() -> Void)?
-    var onPrevious: (() -> Void)?
 
     private let synthesizer = AVSpeechSynthesizer()
     private var beepPlayer: AVAudioPlayer?
@@ -20,12 +19,10 @@ final class AudioCueManager {
     func configure() {
         configureSession()
         setupBeepPlayer()
-        setupRemoteControls()
     }
 
     func deactivate() {
-        clearNowPlayingInfo()
-        clearRemoteControls()
+        synthesizer.stopSpeaking(at: .immediate)
         beepPlayer?.stop()
         beepPlayer = nil
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
@@ -54,18 +51,6 @@ final class AudioCueManager {
         utterance.voice = AVSpeechSynthesisVoice(language: "fr-FR")
         utterance.rate = 0.48
         synthesizer.speak(utterance)
-    }
-
-    func updateNowPlaying(workoutName: String, segmentLabel: String,
-                          segmentElapsed: Double, segmentDuration: Double,
-                          isPlaying: Bool) {
-        MPNowPlayingInfoCenter.default().nowPlayingInfo = [
-            MPMediaItemPropertyTitle: segmentLabel,
-            MPMediaItemPropertyArtist: workoutName,
-            MPMediaItemPropertyPlaybackDuration: segmentDuration,
-            MPNowPlayingInfoPropertyElapsedPlaybackTime: segmentElapsed,
-            MPNowPlayingInfoPropertyPlaybackRate: isPlaying ? 1.0 : 0.0,
-        ]
     }
 
     // MARK: - Private
@@ -120,50 +105,5 @@ final class AudioCueManager {
         for s in samples { var x = s.littleEndian; withUnsafeBytes(of: &x) { wav.append(contentsOf: $0) } }
 
         return wav
-    }
-
-    private func clearRemoteControls() {
-        let cc = MPRemoteCommandCenter.shared()
-        [cc.playCommand, cc.pauseCommand, cc.stopCommand, cc.nextTrackCommand,
-         cc.previousTrackCommand].forEach {
-            $0.removeTarget(nil)
-            $0.isEnabled = false
-        }
-    }
-
-    private func setupRemoteControls() {
-        clearRemoteControls()
-        let cc = MPRemoteCommandCenter.shared()
-
-        cc.playCommand.isEnabled = true
-        cc.pauseCommand.isEnabled = true
-        cc.stopCommand.isEnabled = true
-        cc.nextTrackCommand.isEnabled = true
-        cc.previousTrackCommand.isEnabled = true
-
-        cc.playCommand.addTarget { [weak self] _ in
-            DispatchQueue.main.async { self?.onPlayPause?() }
-            return .success
-        }
-        cc.pauseCommand.addTarget { [weak self] _ in
-            DispatchQueue.main.async { self?.onPlayPause?() }
-            return .success
-        }
-        cc.stopCommand.addTarget { [weak self] _ in
-            DispatchQueue.main.async { self?.onStop?() }
-            return .success
-        }
-        cc.nextTrackCommand.addTarget { [weak self] _ in
-            DispatchQueue.main.async { self?.onSkip?() }
-            return .success
-        }
-        cc.previousTrackCommand.addTarget { [weak self] _ in
-            DispatchQueue.main.async { self?.onPrevious?() }
-            return .success
-        }
-    }
-
-    func clearNowPlayingInfo() {
-        MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
     }
 }
