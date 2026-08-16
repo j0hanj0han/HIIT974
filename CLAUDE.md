@@ -51,7 +51,7 @@ Réimplémentation *from scratch* inspirée fonctionnellement de "Interval Timer
 - [x] Jalon 0 — setup projet + navigation
 - [x] Jalon 1 — éditeur de séance (données mockées)
 - [x] Jalon 2 — moteur de timer + écran run
-- [x] Jalon 3 — audio + arrière-plan + écran verrouillé
+- [x] Jalon 3 — audio (cues en avant-plan uniquement — voir note 2.5.4 ci-dessous)
 - [x] Jalon 4 — persistance SwiftData
 - [x] Jalon 5 — drag-to-reorder + couleurs
 - [x] Jalon 6 — historique + stats
@@ -65,3 +65,23 @@ Réimplémentation *from scratch* inspirée fonctionnellement de "Interval Timer
 > - WorkoutListView : mini-barre proportionnelle dans les lignes (1 round + prépa)
 > - HIIT974App : nouveau Tab struct (iOS 18) + tabBarMinimizeBehavior (iOS 26)
 > - Déploiement minimum relevé iOS 17 → iOS 26
+
+## ⚠️ Pas de background audio (rejet App Store 2.5.4)
+
+L'app a été **rejetée** en guideline 2.5.4 : `UIBackgroundModes: audio` était déclaré
+sans feature nécessitant de l'audio *persistant*. **Le reviewer avait raison.**
+
+Les cues sont uniquement ponctuels (bip de 100 ms sur les 3 dernières secondes, annonce
+vocale aux transitions). Le mode `audio` ne maintient l'app vivante que *pendant* une
+lecture effective : entre deux sons, iOS suspendait l'app. Écran verrouillé, **aucun bip
+ne partait jamais** — le fast-forward dans `TimerEngine.tick()` ne fait que rattraper
+l'état au retour en avant-plan. Le « arrière-plan » du Jalon 3 n'a jamais fonctionné.
+
+`UIBackgroundModes` et tout `MediaPlayer` (Now Playing, remote commands) ont été retirés.
+**Ne pas les réintroduire** sans jouer un flux audio réellement continu.
+
+Pour les cues écran verrouillé (v1.1) : notifications locales pré-planifiées (plafond
+**64** en attente) + Live Activity. **AlarmKit est inadapté aux transitions** — chaque
+alarme est une alerte à rejeter manuellement, sans chaînage automatique. Et sans exécution
+en arrière-plan, le libellé de phase d'une Live Activity ne peut pas changer tant que
+l'app est suspendue : seul `Text(timerInterval:)` s'anime tout seul.
