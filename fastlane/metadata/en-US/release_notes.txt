@@ -1,0 +1,9 @@
+This release comes straight from your feedback.
+
+• Get-ready countdown before the first work interval — 10 seconds to get into position, adjustable from 0 to 60 s.
+• Optional rest — set rest to 0 s to chain work intervals with no break.
+• Halfway signal — a double beep tells you when you're halfway through a work interval.
+• New sounds — spoken cues are gone: a long high beep for work, a low one for recovery. Tell them apart without looking at the screen.
+• Music ducks during the countdown, then returns to full volume — the beeps finally cut through your playlist.
+• Editing a workout is finally findable — swipe a row left, or long-press it.
+• The screen no longer dims during a workout.

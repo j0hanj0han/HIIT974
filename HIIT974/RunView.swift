@@ -65,9 +65,11 @@ struct RunView: View {
             let e = engine
             e.audioCue.configure()
             #if DEBUG
-            // Démarre automatiquement pour la capture d'écran de la séance en cours.
+            // Démarre automatiquement pour la capture d'écran de la séance en cours,
+            // en sautant la préparation : c'est une phase d'effort qu'on veut montrer.
             if ProcessInfo.processInfo.arguments.contains("-screenshotRun") {
                 e.start()
+                if e.currentStep?.phase == .prepare { e.skip() }
             }
             #endif
         }

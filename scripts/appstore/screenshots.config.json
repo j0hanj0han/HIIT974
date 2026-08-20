@@ -1,0 +1,16 @@
+{
+  "project": "HIIT974.xcodeproj",
+  "scheme": "HIIT974",
+  "bundleId": "johanchapelain.HIIT974",
+  "simulator": "iPhone 17 Pro Max",
+  "outputDir": "screenshots",
+  "statusBarTime": "9:41",
+  "expectedWidth": 1320,
+  "expectedHeight": 2868,
+  "screens": [
+    { "arg": "-screenshotRun",     "file": "03-seance-en-cours.png" },
+    { "arg": "-screenshotEditor",  "file": "04-editeur.png" },
+    { "arg": "-screenshotHistory", "file": "01-historique.png" },
+    { "arg": "-screenshotList",    "file": "02-seances.png" }
+  ]
+}
