@@ -26,15 +26,19 @@ struct WorkoutListView: View {
                             } label: {
                                 WorkoutRowView(workout: workout)
                             }
-                            .swipeActions(edge: .leading) {
-                                Button { activeSheet = .edit(workout) } label: {
-                                    Label("Modifier", systemImage: "pencil")
-                                }
-                                .tint(.orange)
+                            // Trois affordances pour l'édition : le swipe depuis le bord
+                            // gauche seul était introuvable.
+                            .swipeActions(edge: .trailing) {
+                                deleteButton(for: workout)   // en 1er : conserve le full-swipe
+                                editButton(for: workout).tint(.orange)
                             }
-                        }
-                        .onDelete { indexSet in
-                            indexSet.forEach { context.delete(workouts[$0]) }
+                            .swipeActions(edge: .leading) {
+                                editButton(for: workout).tint(.orange)
+                            }
+                            .contextMenu {
+                                editButton(for: workout)
+                                deleteButton(for: workout)
+                            }
                         }
                     }
                 }
@@ -73,6 +77,20 @@ struct WorkoutListView: View {
                 RunView(workout: workout)
             }
             #endif
+        }
+    }
+
+    // MARK: - Actions de ligne
+
+    private func editButton(for workout: Workout) -> some View {
+        Button { activeSheet = .edit(workout) } label: {
+            Label("Modifier", systemImage: "pencil")
+        }
+    }
+
+    private func deleteButton(for workout: Workout) -> some View {
+        Button(role: .destructive) { context.delete(workout) } label: {
+            Label("Supprimer", systemImage: "trash")
         }
     }
 }
@@ -119,6 +137,7 @@ private struct WorkoutMiniBar: View {
 
     var body: some View {
         ProportionBar(
+            prepareSeconds: 0,   // la mini-barre illustre le rythme d'un round
             workSeconds: workout.workSeconds,
             restSeconds: workout.restSeconds,
             sets: workout.sets,
