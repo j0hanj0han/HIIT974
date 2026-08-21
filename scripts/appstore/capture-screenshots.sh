@@ -88,6 +88,13 @@ PY
   xcrun simctl launch "$SIM_UDID" "$BUNDLE_ID" "$ARG" >/dev/null
   sleep 3
   xcrun simctl io "$SIM_UDID" screenshot "$OUT_DIR/$FILE" >/dev/null 2>&1
+  # simctl écrit un PNG RGBA ; App Store Connect refuse le canal alpha, on aplatit.
+  /usr/bin/python3 -c 'import sys
+from PIL import Image
+p = sys.argv[1]
+im = Image.open(p)
+if "A" in im.getbands():
+    im.convert("RGB").save(p, "PNG", optimize=True)' "$OUT_DIR/$FILE" 2>/dev/null || true
   W="$(sips -g pixelWidth  "$OUT_DIR/$FILE" 2>/dev/null | awk '/pixelWidth/{print $2}')"
   H="$(sips -g pixelHeight "$OUT_DIR/$FILE" 2>/dev/null | awk '/pixelHeight/{print $2}')"
   if [ "$W" = "$EXP_W" ] && [ "$H" = "$EXP_H" ]; then
