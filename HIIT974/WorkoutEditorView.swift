@@ -69,6 +69,7 @@ struct WorkoutEditorView: View {
 
     var body: some View {
         NavigationStack {
+            ScrollViewReader { proxy in
             Form {
                 Section {
                     ProportionBar(prepareSeconds: prepareSeconds,
@@ -133,6 +134,7 @@ struct WorkoutEditorView: View {
                 } footer: {
                     Text("Facultatif. Un exercice nommé s'affiche à la place de « Effort » pendant la séance.")
                 }
+                .id(Self.namesSectionID)
             }
             .navigationTitle(existingWorkout != nil ? "Modifier" : "Nouvelle séance")
             .navigationBarTitleDisplayMode(.inline)
@@ -146,8 +148,21 @@ struct WorkoutEditorView: View {
                         .fontWeight(.semibold)
                 }
             }
+            #if DEBUG
+            // Capture d'écran App Store : la section des noms est en bas du formulaire,
+            // on la remonte pour qu'elle soit visible sans interaction.
+            .onAppear {
+                guard ProcessInfo.processInfo.arguments.contains("-screenshotEditor") else { return }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                    proxy.scrollTo(Self.namesSectionID, anchor: .top)
+                }
+            }
+            #endif
+            }
         }
     }
+
+    private static let namesSectionID = "exercise-names-section"
 
     /// Noms tels qu'ils seront persistés : bornés à `sets`, nettoyés, et sans entrées
     /// vides en fin de tableau (une séance sans aucun nom repart donc de `[]`).

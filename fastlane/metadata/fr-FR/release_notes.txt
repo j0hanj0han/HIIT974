@@ -1,9 +1,7 @@
-Cette version vient entièrement de vos retours.
+Donnez un nom à chaque exercice de vos séances.
 
-• Préparation avant le premier effort — 10 secondes pour se mettre en place, réglables de 0 à 60 s.
-• Repos optionnel — réglez le repos sur 0 s pour enchaîner les efforts sans pause.
-• Signal à mi-effort — un double bip vous prévient que vous êtes à la moitié.
-• Nouveaux sons — plus d'annonces vocales : un bip long aigu pour l'effort, grave pour la récupération. Reconnaissables sans regarder l'écran.
-• Musique atténuée pendant le décompte, puis rendue à plein volume — les bips passent enfin par-dessus vos playlists.
-• Modifier une séance est enfin trouvable — balayez la ligne vers la gauche, ou appuyez longuement dessus.
-• L'écran ne s'éteint plus pendant une séance.
+• Nommez vos exercices — « Burpees », « Gainage », « Squats »… Le nom s'affiche en grand pendant la séance, à la place de « Effort ».
+• Choisissez dans la liste ou écrivez le vôtre — un catalogue de plus de 40 exercices classés par catégorie, et tout nom que vous saisissez devient réutilisable dans vos autres séances.
+• Pendant le repos, vous voyez déjà l'exercice suivant — de quoi vous placer avant que ça reparte.
+
+Le nommage est facultatif : vos séances existantes fonctionnent exactement comme avant.
