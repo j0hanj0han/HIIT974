@@ -1,0 +1,29 @@
+{
+  "project": "HIIT974.xcodeproj",
+  "scheme": "HIIT974",
+  "bundleId": "johanchapelain.HIIT974",
+  "simulator": "iPhone 17 Pro Max",
+  "outputDir": "screenshots",
+  "statusBarTime": "9:41",
+  "expectedWidth": 1320,
+  "expectedHeight": 2868,
+  "screens": [
+    {
+      "arg": "-screenshotRun",
+      "file": "01-seance-en-cours.png"
+    },
+    {
+      "arg": "-screenshotList",
+      "file": "02-seances.png"
+    },
+    {
+      "arg": "-screenshotEditor",
+      "file": "03-editeur.png"
+    },
+    {
+      "arg": "-screenshotHistory",
+      "file": "04-historique.png"
+    }
+  ],
+  "_doc": "Numérotation = ordre marketing dans App Store Connect. Les PNG doivent être aplatis en RGB sans canal alpha avant upload (simctl en produit avec alpha)."
+}

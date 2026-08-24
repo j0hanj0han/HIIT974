@@ -10,16 +10,32 @@ final class TimerEngine {
 
     struct Step {
         enum Phase {
-            case work, rest, reset
+            case prepare, work, rest, reset
 
             var color: Color {
-                switch self { case .work: .red; case .rest: .blue; case .reset: .teal }
+                switch self {
+                case .prepare: .orange; case .work: .red; case .rest: .blue; case .reset: .teal
+                }
             }
             var systemImage: String {
-                switch self { case .work: "bolt.fill"; case .rest: "pause.circle"; case .reset: "arrow.clockwise" }
+                switch self {
+                case .prepare: "figure.stand"; case .work: "bolt.fill"
+                case .rest: "pause.circle";    case .reset: "arrow.clockwise"
+                }
             }
             var label: String {
-                switch self { case .work: "Effort"; case .rest: "Repos"; case .reset: "Récupération" }
+                switch self {
+                case .prepare: "Préparation"; case .work: "Effort"
+                case .rest: "Repos";          case .reset: "Récupération"
+                }
+            }
+            /// Bip long joué au démarrage de la phase. Aigu = effort, grave = récupération.
+            var startCue: AudioCueManager.Cue {
+                switch self {
+                case .prepare:      .startPrepare
+                case .work:         .startWork
+                case .rest, .reset: .startRest
+                }
             }
         }
 
@@ -50,13 +66,21 @@ final class TimerEngine {
     private var referenceRemaining: TimeInterval
     nonisolated(unsafe) private var timer: Timer?
     private var lastBeepSecond = -1
+    private var halfwayFired = false
 
     init(workout: Workout) {
         var built: [Step] = []
+        if workout.prepareSeconds > 0 {
+            built.append(Step(phase: .prepare, durationSeconds: workout.prepareSeconds, round: 1, setIndex: 0))
+        }
         for r in 0..<max(workout.rounds, 1) {
             for s in 0..<max(workout.sets, 1) {
                 built.append(Step(phase: .work,  durationSeconds: workout.workSeconds, round: r + 1, setIndex: s + 1))
-                built.append(Step(phase: .rest,  durationSeconds: workout.restSeconds, round: r + 1, setIndex: s + 1))
+                // Repos à 0 s : on n'insère aucun step, sinon un segment de durée nulle
+                // ferait défiler deux index en un seul tick et jouerait un cue fantôme.
+                if workout.restSeconds > 0 {
+                    built.append(Step(phase: .rest, durationSeconds: workout.restSeconds, round: r + 1, setIndex: s + 1))
+                }
             }
             if r < workout.rounds - 1 && workout.resetSeconds > 0 {
                 built.append(Step(phase: .reset, durationSeconds: workout.resetSeconds, round: r + 1, setIndex: 0))
@@ -85,14 +109,14 @@ final class TimerEngine {
     func start() {
         guard state == .idle, !steps.isEmpty else { return }
         currentStepIndex     = 0
-        lastBeepSecond = -1
+        resetSegmentCues()
         referenceRemaining   = TimeInterval(steps[0].durationSeconds)
         timeRemaining        = referenceRemaining
         referenceDate        = Date()
         startedAt            = Date()
         state                = .running
         scheduleTimer()
-        audioCue.announceSegmentStart(steps[0].phase.label)
+        cueSegmentStart()
     }
 
     func pause() {
@@ -113,7 +137,7 @@ final class TimerEngine {
         cancelTimer()
         state                = .idle
         currentStepIndex     = 0
-        lastBeepSecond = -1
+        resetSegmentCues()
         beepCount            = 0
         referenceDate        = nil
         startedAt            = nil
@@ -139,11 +163,11 @@ final class TimerEngine {
         if elapsed < 3.0, currentStepIndex > 0 {
             currentStepIndex -= 1
         }
-        lastBeepSecond = -1
+        resetSegmentCues()
         referenceRemaining   = TimeInterval(steps[currentStepIndex].durationSeconds)
         timeRemaining        = referenceRemaining
         referenceDate        = Date()
-        audioCue.announceSegmentStart(steps[currentStepIndex].phase.label)
+        cueSegmentStart()
 
         if wasPaused {
             state = .paused
@@ -162,7 +186,7 @@ final class TimerEngine {
         while elapsed >= referenceRemaining {
             elapsed -= referenceRemaining
             let next = currentStepIndex + 1
-            lastBeepSecond = -1
+            resetSegmentCues()
             if next < steps.count {
                 currentStepIndex   = next
                 referenceRemaining = TimeInterval(steps[next].durationSeconds)
@@ -172,40 +196,89 @@ final class TimerEngine {
                 timeRemaining = 0
                 referenceDate = nil
                 cancelTimer()
-                audioCue.announceFinished()
+                cueFinished()
                 return
             }
         }
 
+        timeRemaining = referenceRemaining - elapsed
+
         if segmentChanged {
             referenceDate = Date() - elapsed
-            audioCue.announceSegmentStart(steps[currentStepIndex].phase.label)
+            cueSegmentStart()
         }
 
-        timeRemaining = referenceRemaining - elapsed
+        if !halfwayFired, let half = halfwayRemaining, timeRemaining <= half {
+            halfwayFired = true
+            // Un retour d'arrière-plan peut nous déposer bien après la moitié — dans le
+            // segment courant comme dans un suivant. On désarme alors sans jouer : un
+            // repère de mi-parcours en retard est pire que pas de repère du tout.
+            if timeRemaining > half - 1 {
+                beepCount += 1
+                audioCue.beginDucking()
+                audioCue.play(.halfway)
+                audioCue.endDuckingAfter(0.8)
+            }
+        }
 
         let secondsLeft = Int(ceil(timeRemaining))
         if secondsLeft <= 3 && secondsLeft > 0 && secondsLeft != lastBeepSecond {
             lastBeepSecond = secondsLeft
             beepCount += 1
-            audioCue.playBeep()
+            audioCue.beginDucking()
+            audioCue.play(.countdown)
+            audioCue.endDuckingAfter(1.0)
         }
+    }
+
+    // MARK: - Cues
+
+    /// Secondes restantes auxquelles jouer le signal de mi-parcours. `nil` hors phase
+    /// d'effort, ou quand la moitié tomberait dans le décompte des 3 dernières secondes.
+    ///
+    /// L'invariant `half > 3` évite que le bip de mi-parcours et celui du décompte se
+    /// chevauchent sur un segment très court. Les steppers de `WorkoutEditorView` (pas de
+    /// 5 s, minimum 5 s) rendent le cas quasi inatteignable — le garde reste nécessaire si
+    /// ces bornes changent un jour.
+    private var halfwayRemaining: TimeInterval? {
+        guard let step = currentStep, step.phase == .work else { return nil }
+        let half = Double(step.durationSeconds) / 2
+        return half > 3 ? half : nil
+    }
+
+    private func resetSegmentCues() {
+        lastBeepSecond = -1
+        halfwayFired   = false
+    }
+
+    /// Bip long de transition. Le ducking est relâché après la fin du bip (600 ms).
+    private func cueSegmentStart() {
+        guard let phase = currentStep?.phase else { return }
+        audioCue.beginDucking()
+        audioCue.play(phase.startCue)
+        audioCue.endDuckingAfter(1.0)
+    }
+
+    private func cueFinished() {
+        audioCue.beginDucking()
+        audioCue.play(.finished)
+        audioCue.endDuckingAfter(1.5)
     }
 
     private func advance() {
         let next = currentStepIndex + 1
-        lastBeepSecond = -1
+        resetSegmentCues()
         if next < steps.count {
             currentStepIndex   = next
             referenceRemaining = TimeInterval(steps[next].durationSeconds)
             timeRemaining      = referenceRemaining
             referenceDate      = Date()
-            audioCue.announceSegmentStart(steps[next].phase.label)
+            cueSegmentStart()
         } else {
             state         = .finished
             timeRemaining = 0
             cancelTimer()
-            audioCue.announceFinished()
+            cueFinished()
         }
     }
 

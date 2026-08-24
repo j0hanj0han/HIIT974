@@ -9,6 +9,7 @@ struct WorkoutEditorView: View {
     @Environment(\.modelContext) private var context
 
     @State private var name: String
+    @State private var prepareSeconds: Int
     @State private var workSeconds: Int
     @State private var restSeconds: Int
     @State private var sets: Int
@@ -18,23 +19,27 @@ struct WorkoutEditorView: View {
     init(existingWorkout: Workout? = nil, onSave: @escaping (Workout) -> Void) {
         self.existingWorkout = existingWorkout
         self.onSave = onSave
-        _name         = State(initialValue: existingWorkout?.name         ?? "")
-        _workSeconds  = State(initialValue: existingWorkout?.workSeconds  ?? 20)
-        _restSeconds  = State(initialValue: existingWorkout?.restSeconds  ?? 10)
-        _sets         = State(initialValue: existingWorkout?.sets         ?? 8)
-        _rounds       = State(initialValue: existingWorkout?.rounds       ?? 1)
-        _resetSeconds = State(initialValue: existingWorkout?.resetSeconds ?? 0)
+        _name           = State(initialValue: existingWorkout?.name           ?? "")
+        _prepareSeconds = State(initialValue: existingWorkout?.prepareSeconds ?? 10)
+        _workSeconds    = State(initialValue: existingWorkout?.workSeconds    ?? 20)
+        _restSeconds    = State(initialValue: existingWorkout?.restSeconds    ?? 10)
+        _sets           = State(initialValue: existingWorkout?.sets           ?? 8)
+        _rounds         = State(initialValue: existingWorkout?.rounds         ?? 1)
+        _resetSeconds   = State(initialValue: existingWorkout?.resetSeconds   ?? 0)
     }
 
     private var totalSeconds: Int {
-        sets * (workSeconds + restSeconds) * rounds + max(0, rounds - 1) * resetSeconds
+        prepareSeconds
+            + sets * (workSeconds + restSeconds) * rounds
+            + max(0, rounds - 1) * resetSeconds
     }
 
     var body: some View {
         NavigationStack {
             Form {
                 Section {
-                    ProportionBar(workSeconds: workSeconds, restSeconds: restSeconds,
+                    ProportionBar(prepareSeconds: prepareSeconds,
+                                  workSeconds: workSeconds, restSeconds: restSeconds,
                                   sets: sets, rounds: rounds, resetSeconds: resetSeconds)
                         .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
                     HStack {
@@ -50,6 +55,11 @@ struct WorkoutEditorView: View {
                 }
 
                 Section {
+                    ParamRow(icon: "figure.stand",    color: .orange,
+                             title: "Préparation",
+                             value: prepareSeconds == 0 ? "Aucune" : durationLabel(prepareSeconds)) {
+                        Stepper("", value: $prepareSeconds, in: 0...60, step: 5).labelsHidden()
+                    }
                     ParamRow(icon: "bolt.fill",       color: .red,
                              title: "Travail",
                              value: durationLabel(workSeconds)) {
@@ -57,10 +67,10 @@ struct WorkoutEditorView: View {
                     }
                     ParamRow(icon: "pause.circle",    color: .blue,
                              title: "Repos",
-                             value: durationLabel(restSeconds)) {
-                        Stepper("", value: $restSeconds, in: 5...600, step: 5).labelsHidden()
+                             value: restSeconds == 0 ? "Aucun" : durationLabel(restSeconds)) {
+                        Stepper("", value: $restSeconds, in: 0...600, step: 5).labelsHidden()
                     }
-                    ParamRow(icon: "number.circle",   color: .orange,
+                    ParamRow(icon: "number.circle",   color: .indigo,
                              title: "Exercices",
                              value: "\(sets)") {
                         Stepper("", value: $sets, in: 1...30).labelsHidden()
@@ -94,15 +104,17 @@ struct WorkoutEditorView: View {
 
     private func save() {
         if let existing = existingWorkout {
-            existing.name         = name
-            existing.workSeconds  = workSeconds
-            existing.restSeconds  = restSeconds
-            existing.sets         = sets
-            existing.rounds       = rounds
-            existing.resetSeconds = resetSeconds
+            existing.name           = name
+            existing.prepareSeconds = prepareSeconds
+            existing.workSeconds    = workSeconds
+            existing.restSeconds    = restSeconds
+            existing.sets           = sets
+            existing.rounds         = rounds
+            existing.resetSeconds   = resetSeconds
             onSave(existing)
         } else {
-            onSave(Workout(name: name, workSeconds: workSeconds, restSeconds: restSeconds,
+            onSave(Workout(name: name, prepareSeconds: prepareSeconds,
+                           workSeconds: workSeconds, restSeconds: restSeconds,
                            sets: sets, rounds: rounds, resetSeconds: resetSeconds))
         }
         dismiss()
@@ -112,6 +124,7 @@ struct WorkoutEditorView: View {
 // MARK: - Proportion bar
 
 struct ProportionBar: View {
+    let prepareSeconds: Int
     let workSeconds: Int
     let restSeconds: Int
     let sets: Int
@@ -125,16 +138,23 @@ struct ProportionBar: View {
     }
 
     private var total: Double {
-        Double(sets * (workSeconds + restSeconds) * rounds + max(0, rounds - 1) * resetSeconds)
+        Double(prepareSeconds
+               + sets * (workSeconds + restSeconds) * rounds
+               + max(0, rounds - 1) * resetSeconds)
     }
 
     private var segments: [Seg] {
         var result: [Seg] = []
         var idx = 0
+        if prepareSeconds > 0 {
+            result.append(Seg(id: idx, color: .orange, seconds: prepareSeconds)); idx += 1
+        }
         for r in 0..<rounds {
             for _ in 0..<sets {
                 result.append(Seg(id: idx, color: .red,  seconds: workSeconds)); idx += 1
-                result.append(Seg(id: idx, color: .blue, seconds: restSeconds)); idx += 1
+                if restSeconds > 0 {
+                    result.append(Seg(id: idx, color: .blue, seconds: restSeconds)); idx += 1
+                }
             }
             if r < rounds - 1 && resetSeconds > 0 {
                 result.append(Seg(id: idx, color: .teal, seconds: resetSeconds)); idx += 1

@@ -59,16 +59,22 @@ struct RunView: View {
         .sensoryFeedback(.success, trigger: engine.state) { _, newState in newState == .finished }
         .sensoryFeedback(.impact(flexibility: .rigid), trigger: engine.beepCount)
         .onAppear {
+            // Sans background audio, un écran qui s'éteint coupe tous les cues :
+            // on maintient l'app éveillée le temps de la séance.
+            UIApplication.shared.isIdleTimerDisabled = true
             let e = engine
             e.audioCue.configure()
             #if DEBUG
-            // Démarre automatiquement pour la capture d'écran de la séance en cours.
+            // Démarre automatiquement pour la capture d'écran de la séance en cours,
+            // en sautant la préparation : c'est une phase d'effort qu'on veut montrer.
             if ProcessInfo.processInfo.arguments.contains("-screenshotRun") {
                 e.start()
+                if e.currentStep?.phase == .prepare { e.skip() }
             }
             #endif
         }
         .onDisappear {
+            UIApplication.shared.isIdleTimerDisabled = false
             if !runSaved, engine.state == .finished, let startedAt = engine.startedAt {
                 runSaved = true
                 context.insert(WorkoutRun(workoutName: workout.name, startedAt: startedAt, completedAt: Date()))
@@ -161,7 +167,7 @@ struct RunView: View {
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(.white.opacity(0.75))
             }
-            if engine.currentStep?.phase != .reset {
+            if let phase = engine.currentStep?.phase, phase != .reset, phase != .prepare {
                 Text("Ex. \(engine.currentSetIndex) / \(engine.totalSets)")
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(.white.opacity(0.75))
