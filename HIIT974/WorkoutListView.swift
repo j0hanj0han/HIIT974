@@ -68,7 +68,9 @@ struct WorkoutListView: View {
                     screenshotRunWorkout = workouts.first
                 }
                 if args.contains("-screenshotEditor") {
-                    activeSheet = .create
+                    // Une séance existante plutôt qu'un formulaire vide : c'est le seul
+                    // moyen de montrer la section des noms d'exercices renseignée.
+                    activeSheet = workouts.first.map { .edit($0) } ?? .create
                 }
                 #endif
             }

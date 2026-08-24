@@ -41,8 +41,14 @@ final class TimerEngine {
 
         let phase: Phase
         let durationSeconds: Int
-        let round: Int      // 1-based
-        let setIndex: Int   // 1-based ; 0 pour les steps reset
+        let round: Int              // 1-based
+        let setIndex: Int           // 1-based ; 0 pour les steps reset
+        let exerciseName: String?   // nom personnalisé, phases d'effort uniquement
+
+        /// Ce que l'écran de séance affiche pour ce step : le nom de l'exercice quand il
+        /// est renseigné, le libellé de phase sinon. Toute l'UI passe par là, pour éviter
+        /// d'éparpiller le repli dans les vues.
+        var displayLabel: String { exerciseName ?? phase.label }
     }
 
     // MARK: - TimerState
@@ -71,19 +77,25 @@ final class TimerEngine {
     init(workout: Workout) {
         var built: [Step] = []
         if workout.prepareSeconds > 0 {
-            built.append(Step(phase: .prepare, durationSeconds: workout.prepareSeconds, round: 1, setIndex: 0))
+            built.append(Step(phase: .prepare, durationSeconds: workout.prepareSeconds,
+                              round: 1, setIndex: 0, exerciseName: nil))
         }
         for r in 0..<max(workout.rounds, 1) {
             for s in 0..<max(workout.sets, 1) {
-                built.append(Step(phase: .work,  durationSeconds: workout.workSeconds, round: r + 1, setIndex: s + 1))
+                // Les noms sont attachés à la série, donc identiques d'un round à l'autre.
+                built.append(Step(phase: .work, durationSeconds: workout.workSeconds,
+                                  round: r + 1, setIndex: s + 1,
+                                  exerciseName: workout.exerciseName(at: s + 1)))
                 // Repos à 0 s : on n'insère aucun step, sinon un segment de durée nulle
                 // ferait défiler deux index en un seul tick et jouerait un cue fantôme.
                 if workout.restSeconds > 0 {
-                    built.append(Step(phase: .rest, durationSeconds: workout.restSeconds, round: r + 1, setIndex: s + 1))
+                    built.append(Step(phase: .rest, durationSeconds: workout.restSeconds,
+                                      round: r + 1, setIndex: s + 1, exerciseName: nil))
                 }
             }
             if r < workout.rounds - 1 && workout.resetSeconds > 0 {
-                built.append(Step(phase: .reset, durationSeconds: workout.resetSeconds, round: r + 1, setIndex: 0))
+                built.append(Step(phase: .reset, durationSeconds: workout.resetSeconds,
+                                  round: r + 1, setIndex: 0, exerciseName: nil))
             }
         }
         steps        = built

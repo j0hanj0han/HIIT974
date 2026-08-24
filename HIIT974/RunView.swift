@@ -97,9 +97,13 @@ struct RunView: View {
 
             if let step = engine.currentStep {
                 VStack(spacing: 28) {
-                    Label(step.phase.label, systemImage: step.phase.systemImage)
+                    Label(step.displayLabel, systemImage: step.phase.systemImage)
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(bgColor)
+                        // Un nom d'exercice peut être bien plus long qu'un libellé de
+                        // phase : on rétrécit plutôt que de tronquer.
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 6)
                         .background(.white, in: Capsule())
@@ -184,8 +188,9 @@ struct RunView: View {
             if let next = engine.nextStep {
                 Image(systemName: next.phase.systemImage)
                     .foregroundStyle(.white.opacity(0.9))
-                Text(next.phase.label)
+                Text(next.displayLabel)
                     .foregroundStyle(.white)
+                    .lineLimit(1)
                 Text("·").foregroundStyle(.white.opacity(0.65))
                 Text(segDurationLabel(next.durationSeconds))
                     .foregroundStyle(.white)
