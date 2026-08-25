@@ -1,7 +1,11 @@
-Give every exercise in your workouts a name.
+Your exercises finally have names.
 
-• Name your exercises — "Burpees", "Plank", "Squats"… The name is shown in large type during the workout, in place of the generic work label.
-• Pick from the list or write your own — a catalogue of 40+ exercises sorted by category, and any name you type becomes reusable across your other workouts.
-• During rest, you already see the next exercise — enough time to get into position before it starts again.
+• Name every exercise in a workout — "Burpees", "Plank", "Lunges"… The name shows in large type while you work, in place of the generic work label. No more trying to remember what comes next.
 
-Naming is optional: your existing workouts behave exactly as before.
+• Pick from the catalogue or type your own — 42 exercises sorted into five categories: cardio, upper body, lower body, core, mobility.
+
+• Your own names come back on their own — type a name once and it turns up under "Recent" the next time you build a workout.
+
+• During rest, you already see what's coming — the "Up next" line announces it, so you have time to get into position.
+
+All of this is optional: your existing workouts run exactly as before.
