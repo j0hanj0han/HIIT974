@@ -34,7 +34,13 @@ struct WorkoutEditorView: View {
         _exerciseNames  = State(initialValue: existingWorkout?.exerciseNames  ?? [])
 
         // Repliée par défaut : on ne déplie que si la séance a déjà des noms à montrer.
-        let hasNames = existingWorkout?.exerciseNames.contains { !$0.isEmpty } ?? false
+        var hasNames = existingWorkout?.exerciseNames.contains { !$0.isEmpty } ?? false
+        #if DEBUG
+        // Capture « structure de la séance » : la liste dépliée déborderait en bas de
+        // l'écran, coupée en plein milieu d'une ligne. La capture des noms, elle, a son
+        // propre argument.
+        if ProcessInfo.processInfo.arguments.contains("-screenshotEditor") { hasNames = false }
+        #endif
         _namesExpanded = State(initialValue: hasNames)
     }
 
@@ -150,9 +156,10 @@ struct WorkoutEditorView: View {
             }
             #if DEBUG
             // Capture d'écran App Store : la section des noms est en bas du formulaire,
-            // on la remonte pour qu'elle soit visible sans interaction.
+            // on la remonte pour qu'elle soit visible sans interaction. Sans cet argument
+            // la capture montre le haut du formulaire, c'est-à-dire la structure de la séance.
             .onAppear {
-                guard ProcessInfo.processInfo.arguments.contains("-screenshotEditor") else { return }
+                guard ProcessInfo.processInfo.arguments.contains("-screenshotEditorNames") else { return }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
                     proxy.scrollTo(Self.namesSectionID, anchor: .top)
                 }
