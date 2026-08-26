@@ -239,11 +239,26 @@ final class TimerEngine {
             beepCount += 1
             audioCue.beginDucking()
             audioCue.play(.countdown)
-            audioCue.endDuckingAfter(1.0)
+            audioCue.endDuckingAfter(Self.countdownDuckRelease)
         }
     }
 
     // MARK: - Cues
+
+    /// Délai de relâche du ducking après un bip du décompte.
+    ///
+    /// **Doit rester strictement supérieur à la seconde qui sépare deux bips.** À 1,0 s
+    /// pile, le relâchement du bip N tombait exactement sur le bip N+1 (et 1 s vaut 20
+    /// ticks ronds) : `releaseDucking()` reconfigurait la session juste avant que
+    /// `beginDucking()` la reconfigure en sens inverse. Deux IPC vers `mediaserverd` dos à
+    /// dos, à chaque seconde du décompte — pompage audible sur la musique, et bip joué
+    /// avant que l'atténuation ne soit en place.
+    ///
+    /// Avec cette marge, le `beginDucking()` du bip suivant annule le relâchement en
+    /// attente : l'atténuation tient d'une traite de T-3 jusqu'au bip de transition. Le
+    /// relâchement ne s'exécute que si la chaîne s'interrompt — une pause en plein
+    /// décompte, typiquement, où rendre la musique est le bon comportement.
+    private static let countdownDuckRelease: TimeInterval = 1.5
 
     /// Secondes restantes auxquelles jouer le signal de mi-parcours. `nil` hors phase
     /// d'effort, ou quand la moitié tomberait dans le décompte des 3 dernières secondes.
