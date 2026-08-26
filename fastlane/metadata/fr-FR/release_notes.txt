@@ -1,11 +1,4 @@
-Vos exercices ont enfin un nom.
+Correction d'un bug que vous nous avez signalé.
 
-• Nommez chaque exercice de la séance — « Burpees », « Gainage », « Fentes »… Le nom s'affiche en grand pendant l'effort, à la place de « Effort ». Plus besoin de se rappeler ce qui vient.
-
-• Piochez dans le catalogue ou tapez le vôtre — 42 exercices classés en cinq catégories : cardio, haut du corps, bas du corps, gainage, mobilité.
-
-• Vos propres noms reviennent tout seuls — un nom saisi une fois apparaît dans « Récents » quand vous montez la séance suivante.
-
-• Pendant le repos, vous voyez déjà l'exercice d'après — la ligne « Ensuite » l'annonce, vous avez le temps de vous placer.
-
-Tout ceci est facultatif : vos séances existantes se déroulent exactement comme avant.
+• Décompte fiable par-dessus la musique — quand Spotify ou une autre app musicale jouait, les trois bips du décompte pouvaient se chevaucher, ou l'un des trois manquer à l'appel. C'est réglé.
+• Fin du pompage de volume — la musique n'est plus atténuée puis rendue à chaque seconde du décompte : elle baisse une fois, le temps des bips, et revient ensuite.

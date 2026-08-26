@@ -1,11 +1,4 @@
-Your exercises finally have names.
+A fix for a bug you reported.
 
-• Name every exercise in a workout — "Burpees", "Plank", "Lunges"… The name shows in large type while you work, in place of the generic work label. No more trying to remember what comes next.
-
-• Pick from the catalogue or type your own — 42 exercises sorted into five categories: cardio, upper body, lower body, core, mobility.
-
-• Your own names come back on their own — type a name once and it turns up under "Recent" the next time you build a workout.
-
-• During rest, you already see what's coming — the "Up next" line announces it, so you have time to get into position.
-
-All of this is optional: your existing workouts run exactly as before.
+• Reliable countdown over music — when Spotify or another music app was playing, the three countdown beeps could overlap, or one could go missing entirely. Fixed.
+• No more volume pumping — the music is no longer ducked and restored every second of the countdown: it dips once, for the beeps, then comes back.
