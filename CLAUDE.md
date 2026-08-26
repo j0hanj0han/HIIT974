@@ -28,18 +28,25 @@ Réimplémentation *from scratch* inspirée fonctionnellement de "Interval Timer
   par accumulation de ticks** (immunise contre la dérive en arrière-plan ; la boucle de
   fast-forward de `tick()` rattrape les segments écoulés au retour en avant-plan).
 - `AudioCueManager` (`@MainActor`) — session audio, vocabulaire sonore et ducking.
+- `ExerciseCatalog` — suggestions de noms d'exercices. Constante (catalogue intégré) +
+  noms personnels **recalculés à la volée** depuis les séances : aucune entité SwiftData.
 - Vues : `WorkoutListView` → `WorkoutEditorView` → `RunView`, + `HistoryView`.
 
 ## Modèle de données
 Modèle **plat** (pas de liste de segments éditable) : une séance est six nombres.
 
-- `Workout { name, createdAt, prepareSeconds, workSeconds, restSeconds, sets, rounds, resetSeconds }`
+- `Workout { name, createdAt, prepareSeconds, workSeconds, restSeconds, sets, rounds, resetSeconds, exerciseNames }`
   — `@Model` SwiftData. `prepareSeconds` (défaut 10) = mise en place avant le 1er effort ;
   `resetSeconds` = récupération **entre** rounds. `restSeconds` et `resetSeconds` peuvent
   valoir 0 : le step correspondant n'est alors pas construit.
+- `exerciseNames: [String]` (v1.2) = noms des exercices, **table creuse** : sa longueur est
+  indépendante de `sets`, qui reste la source de vérité du nombre d'exercices. Entrée vide ou
+  manquante = non nommé, lire via `exerciseName(at:)`. SwiftData le persiste en blob
+  `NSKeyedArchiver`, donc non requêtable — sans importance ici. Les noms valent pour tous les
+  rounds, un round ne rejoue pas une liste différente.
 - `WorkoutRun { workoutName, startedAt, completedAt, totalSeconds }` ← historique.
   `workoutName` est dénormalisé (pas de relation vers `Workout`).
-- `TimerEngine.Step { phase, durationSeconds, round, setIndex }` avec
+- `TimerEngine.Step { phase, durationSeconds, round, setIndex, exerciseName }` avec
   `Phase { prepare, work, rest, reset }` (+ couleur, symbole, label, `startCue`) — modèle
   interne au moteur, jamais persisté.
 
@@ -90,6 +97,16 @@ durée du cue, sinon `setActive(false)` le coupe net.
       mi-effort, bips longs par phase à la place de la voix, ducking de la musique pendant
       les cues, édition d'une séance rendue trouvable (swipe trailing + menu contextuel),
       écran maintenu allumé pendant la séance, conteneur SwiftData résilient.
+- [x] v1.2 (build 4) — noms d'exercices personnalisables : saisie libre ou choix dans un menu
+      (catalogue intégré de ~42 exercices en 5 catégories + noms déjà utilisés ailleurs). Le
+      nom s'affiche dans le badge de `RunView` et dans la ligne « Ensuite », le libellé de
+      phase restant sous le chrono. Migration vérifiée depuis un vrai store 1.1.
+
+> **Note API** : `.textInputSuggestions` (autocomplétion sous un `TextField`) est
+> `@available(iOS, unavailable)` — macOS 15 uniquement. Le menu de suggestions est donc
+> construit à la main avec des `Menu` imbriqués, qui se rendent en sous-menus natifs.
+> Dans une ligne de `Form`, un `Menu` voisin d'un `TextField` **doit** porter
+> `.buttonStyle(.borderless)`, sinon il capte le tap de toute la ligne.
 
 > **Jalon 8 décisions** :
 > - RunView : fond plein écran couleur segment, anneau circulaire, glassEffect iOS 26 sur contrôles

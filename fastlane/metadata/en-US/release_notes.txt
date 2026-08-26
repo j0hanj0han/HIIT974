@@ -1,9 +1,11 @@
-This release comes straight from your feedback.
+Your exercises finally have names.
 
-• Get-ready countdown before the first work interval — 10 seconds to get into position, adjustable from 0 to 60 s.
-• Optional rest — set rest to 0 s to chain work intervals with no break.
-• Halfway signal — a double beep tells you when you're halfway through a work interval.
-• New sounds — spoken cues are gone: a long high beep for work, a low one for recovery. Tell them apart without looking at the screen.
-• Music ducks during the countdown, then returns to full volume — the beeps finally cut through your playlist.
-• Editing a workout is finally findable — swipe a row left, or long-press it.
-• The screen no longer dims during a workout.
+• Name every exercise in a workout — "Burpees", "Plank", "Lunges"… The name shows in large type while you work, in place of the generic work label. No more trying to remember what comes next.
+
+• Pick from the catalogue or type your own — 42 exercises sorted into five categories: cardio, upper body, lower body, core, mobility.
+
+• Your own names come back on their own — type a name once and it turns up under "Recent" the next time you build a workout.
+
+• During rest, you already see what's coming — the "Up next" line announces it, so you have time to get into position.
+
+All of this is optional: your existing workouts run exactly as before.

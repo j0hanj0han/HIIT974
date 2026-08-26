@@ -87,14 +87,32 @@ PY
   xcrun simctl terminate "$SIM_UDID" "$BUNDLE_ID" 2>/dev/null || true
   xcrun simctl launch "$SIM_UDID" "$BUNDLE_ID" "$ARG" >/dev/null
   sleep 3
-  xcrun simctl io "$SIM_UDID" screenshot "$OUT_DIR/$FILE" >/dev/null 2>&1
-  # simctl écrit un PNG RGBA ; App Store Connect refuse le canal alpha, on aplatit.
-  /usr/bin/python3 -c 'import sys
-from PIL import Image
-p = sys.argv[1]
-im = Image.open(p)
+  # Rafale : un écran animé (transition numérique du chrono) est flou une image sur
+  # trois. On tire plusieurs vues et on garde la plus nette.
+  BURST_DIR="$(mktemp -d)"
+  for N in 1 2 3 4 5 6; do
+    xcrun simctl io "$SIM_UDID" screenshot "$BURST_DIR/$N.png" >/dev/null 2>&1
+    sleep 0.35
+  done
+  # Garde la plus nette, puis aplatit : simctl écrit du RGBA, ASC refuse le canal alpha.
+  /usr/bin/python3 -c 'import sys, glob
+from PIL import Image, ImageFilter, ImageStat
+burst, out = sys.argv[1], sys.argv[2]
+best = None
+for path in sorted(glob.glob(burst + "/*.png")):
+    im = Image.open(path)
+    w, h = im.size
+    # Bande centrale : la zone qui porte le texte animé.
+    zone = im.convert("L").crop((w // 4, int(h * 0.36), w * 3 // 4, int(h * 0.46)))
+    score = ImageStat.Stat(zone.filter(ImageFilter.FIND_EDGES)).stddev[0]
+    if best is None or score > best[0]:
+        best = (score, path)
+im = Image.open(best[1])
 if "A" in im.getbands():
-    im.convert("RGB").save(p, "PNG", optimize=True)' "$OUT_DIR/$FILE" 2>/dev/null || true
+    im = im.convert("RGB")
+im.save(out, "PNG", optimize=True)' "$BURST_DIR" "$OUT_DIR/$FILE" 2>/dev/null \
+    || xcrun simctl io "$SIM_UDID" screenshot "$OUT_DIR/$FILE" >/dev/null 2>&1
+  rm -rf "$BURST_DIR"
   W="$(sips -g pixelWidth  "$OUT_DIR/$FILE" 2>/dev/null | awk '/pixelWidth/{print $2}')"
   H="$(sips -g pixelHeight "$OUT_DIR/$FILE" 2>/dev/null | awk '/pixelHeight/{print $2}')"
   if [ "$W" = "$EXP_W" ] && [ "$H" = "$EXP_H" ]; then

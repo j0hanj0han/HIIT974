@@ -18,11 +18,15 @@
     },
     {
       "arg": "-screenshotEditor",
-      "file": "03-editeur.png"
+      "file": "03-editeur-structure.png"
+    },
+    {
+      "arg": "-screenshotEditorNames",
+      "file": "04-editeur-noms.png"
     },
     {
       "arg": "-screenshotHistory",
-      "file": "04-historique.png"
+      "file": "05-historique.png"
     }
   ],
   "_doc": "Numérotation = ordre marketing dans App Store Connect. Les PNG doivent être aplatis en RGB sans canal alpha avant upload (simctl en produit avec alpha)."

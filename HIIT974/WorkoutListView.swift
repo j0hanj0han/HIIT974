@@ -67,8 +67,11 @@ struct WorkoutListView: View {
                 if args.contains("-screenshotRun") {
                     screenshotRunWorkout = workouts.first
                 }
-                if args.contains("-screenshotEditor") {
-                    activeSheet = .create
+                // Deux captures d'éditeur : la structure de la séance, puis la liste
+                // des noms. Une séance existante plutôt qu'un formulaire vide, sinon les
+                // paramètres et les noms seraient vides.
+                if args.contains("-screenshotEditor") || args.contains("-screenshotEditorNames") {
+                    activeSheet = workouts.first.map { .edit($0) } ?? .create
                 }
                 #endif
             }
