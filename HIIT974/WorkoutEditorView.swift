@@ -135,10 +135,10 @@ struct WorkoutEditorView: View {
                                             personalNames: personalNames)
                         }
                     } label: {
-                        Label("Nommer les exercices", systemImage: "text.badge.plus")
+                        Label("Choisir les exercices", systemImage: "figure.run")
                     }
                 } footer: {
-                    Text("Facultatif. Un exercice nommé s'affiche à la place de « Effort » pendant la séance.")
+                    Text("Facultatif. L'exercice choisi s'affiche à la place de « Effort » pendant la séance.")
                 }
                 .id(Self.namesSectionID)
             }
