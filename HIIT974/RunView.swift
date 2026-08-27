@@ -92,69 +92,104 @@ struct RunView: View {
     // MARK: - Timer view
 
     private var timerView: some View {
-        VStack(spacing: 0) {
-            Spacer()
+        // Tout l'écran est dimensionné pour être lu à distance : c'est le diamètre de
+        // l'anneau qui fixe la taille du chrono, donc la distance de lecture. On prend
+        // toute la largeur disponible, en se laissant plafonner par la hauteur sur les
+        // petits écrans pour que les contrôles restent à l'image.
+        GeometryReader { geo in
+            // Le tracé de l'anneau déborde du frame de la moitié de son épaisseur : sans
+            // l'inclure ici, le cercle vient mordre les bords de l'écran.
+            let ringDiameter = min((geo.size.width - 28) / (1 + ringStrokeRatio),
+                                   geo.size.height * 0.50)
 
-            if let step = engine.currentStep {
-                VStack(spacing: 28) {
-                    Label(step.displayLabel, systemImage: step.phase.systemImage)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(bgColor)
-                        // Un nom d'exercice peut être bien plus long qu'un libellé de
-                        // phase : on rétrécit plutôt que de tronquer.
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 6)
-                        .background(.white, in: Capsule())
+            VStack(spacing: 0) {
+                Spacer(minLength: 8)
 
-                    ringTimer
+                if let step = engine.currentStep {
+                    VStack(spacing: 24) {
+                        exerciseBadge(step)
 
-                    countersRow
+                        ringTimer(diameter: ringDiameter)
+
+                        countersRow
+                    }
+                    .id(engine.currentStepIndex)
+                    .transition(.push(from: transitionEdge))
+                    .animation(.easeInOut(duration: 0.25), value: engine.currentStepIndex)
                 }
-                .id(engine.currentStepIndex)
-                .transition(.push(from: transitionEdge))
-                .animation(.easeInOut(duration: 0.25), value: engine.currentStepIndex)
+
+                Spacer(minLength: 8)
+
+                nextStepRow.padding(.horizontal, 24)
+
+                Spacer(minLength: 8)
+
+                controlsRow.padding(.bottom, 44)
             }
-
-            Spacer()
-
-            nextStepRow.padding(.horizontal, 24)
-
-            Spacer()
-
-            controlsRow.padding(.bottom, 44)
+            .frame(width: geo.size.width, height: geo.size.height)
         }
+    }
+
+    // MARK: - Exercise badge
+
+    private func exerciseBadge(_ step: TimerEngine.Step) -> some View {
+        Label(step.displayLabel, systemImage: step.phase.systemImage)
+            .font(.system(size: 34, weight: .bold, design: .rounded))
+            .foregroundStyle(bgColor)
+            // Un nom d'exercice peut être bien plus long qu'un libellé de
+            // phase : on rétrécit plutôt que de tronquer.
+            .lineLimit(1)
+            .minimumScaleFactor(0.55)
+            .padding(.horizontal, 22)
+            .padding(.vertical, 10)
+            .background(.white, in: Capsule())
+            .padding(.horizontal, 16)
     }
 
     // MARK: - Ring
 
-    private var ringTimer: some View {
-        ZStack {
+    /// Épaisseur du tracé de l'anneau, en fraction de son diamètre.
+    private let ringStrokeRatio: CGFloat = 0.06
+
+    private func ringTimer(diameter: CGFloat) -> some View {
+        let stroke = diameter * ringStrokeRatio
+        // Le chrono est inscrit dans le cercle : il tient dans une corde, pas dans le
+        // diamètre. 0,74 laisse le texte respirer sans mordre sur le tracé.
+        let textWidth = diameter * 0.74
+
+        return ZStack {
             Circle()
-                .stroke(Color.white.opacity(0.22), lineWidth: 18)
+                .stroke(Color.white.opacity(0.22), lineWidth: stroke)
             Circle()
                 .trim(from: 0, to: ringProgress)
-                .stroke(Color.white, style: StrokeStyle(lineWidth: 18, lineCap: .round))
+                .stroke(Color.white, style: StrokeStyle(lineWidth: stroke, lineCap: .round))
                 .rotationEffect(.degrees(-90))
                 .animation(.linear(duration: 0.08), value: ringProgress)
 
-            VStack(spacing: 4) {
+            VStack(spacing: 2) {
                 Text(timeString(engine.timeRemaining))
-                    .font(.system(size: 76, weight: .bold, design: .rounded))
+                    .font(.system(size: diameter * 0.32, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
                     .monospacedDigit()
+                    // Un segment de 10 min affiche cinq caractères au lieu de quatre :
+                    // on rétrécit ce cas-là plutôt que de rapetisser tout le reste.
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                    .frame(width: textWidth)
                     .contentTransition(.numericText(countsDown: true))
                     .animation(.default, value: Int(engine.timeRemaining))
 
                 if let step = engine.currentStep {
                     Text(step.phase.label)
-                        .font(.title3.weight(.medium))
+                        .font(.system(size: diameter * 0.076, weight: .semibold, design: .rounded))
                         .foregroundStyle(.white.opacity(0.85))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                        .frame(width: textWidth)
                 }
             }
         }
-        .frame(width: 270, height: 270)
+        .frame(width: diameter, height: diameter)
     }
 
     private var ringProgress: Double {
@@ -165,16 +200,16 @@ struct RunView: View {
     // MARK: - Counters (round + set)
 
     private var countersRow: some View {
-        HStack(spacing: 16) {
+        HStack(spacing: 20) {
             if engine.totalRounds > 1 {
                 Text("Round \(engine.currentRound) / \(engine.totalRounds)")
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.white.opacity(0.75))
+                    .font(.system(size: 22, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.8))
             }
             if let phase = engine.currentStep?.phase, phase != .reset, phase != .prepare {
                 Text("Ex. \(engine.currentSetIndex) / \(engine.totalSets)")
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.white.opacity(0.75))
+                    .font(.system(size: 22, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.8))
             }
         }
     }
@@ -199,7 +234,9 @@ struct RunView: View {
             }
             Spacer()
         }
-        .font(.subheadline)
+        .font(.system(size: 20, weight: .medium, design: .rounded))
+        .lineLimit(1)
+        .minimumScaleFactor(0.7)
     }
 
     // MARK: - Controls
@@ -234,17 +271,22 @@ struct RunView: View {
     // MARK: - Finished
 
     private var finishedView: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 24) {
             Spacer()
             Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 90)).foregroundStyle(.white)
+                .font(.system(size: 120)).foregroundStyle(.white)
                 .symbolEffect(.bounce, value: engine.state == .finished)
             Text("Séance terminée !")
-                .font(.title).fontWeight(.bold).foregroundStyle(.white)
+                .font(.system(size: 40, weight: .bold, design: .rounded))
+                .foregroundStyle(.white)
+                .multilineTextAlignment(.center)
             Text(workout.name)
-                .font(.title3).foregroundStyle(.white.opacity(0.8))
+                .font(.system(size: 26, weight: .medium, design: .rounded))
+                .foregroundStyle(.white.opacity(0.8))
+                .multilineTextAlignment(.center)
             Spacer()
         }
+        .padding(.horizontal, 24)
     }
 
     // MARK: - Helpers

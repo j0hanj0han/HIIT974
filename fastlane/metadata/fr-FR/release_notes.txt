@@ -1,4 +1,5 @@
-Correction d'un bug que vous nous avez signalé.
+Lisible depuis l'autre bout de la pièce.
 
-• Décompte fiable par-dessus la musique — quand Spotify ou une autre app musicale jouait, les trois bips du décompte pouvaient se chevaucher, ou l'un des trois manquer à l'appel. C'est réglé.
-• Fin du pompage de volume — la musique n'est plus atténuée puis rendue à chaque seconde du décompte : elle baisse une fois, le temps des bips, et revient ensuite.
+• Chrono deux fois plus grand — l'anneau occupe désormais toute la largeur de l'écran et le compte à rebours passe de 76 à 113 points. Posez le téléphone au sol : vous lisez le temps restant sans vous rapprocher.
+• Nom de l'exercice bien plus visible — le badge au-dessus de l'anneau passe en gros caractères gras, comme le libellé de phase, les compteurs de round et la ligne « Ensuite ».
+• L'écran de fin s'agrandit aussi, dans le même esprit.
