@@ -12,6 +12,9 @@ import os
 /// temporairement en `.duckOthers` : la musique est atténuée le temps qu'on se fasse
 /// entendre, puis revient à pleine puissance. Aucune synthèse vocale — tout le
 /// vocabulaire est sonore, cf. ``Cue``.
+///
+/// Toutes les mutations de session partent sur ``sessionQueue`` : elles ne doivent
+/// **jamais** revenir sur le main thread, sous peine de geler le timer du moteur.
 @MainActor
 final class AudioCueManager {
 
@@ -42,7 +45,18 @@ final class AudioCueManager {
     // Pas de `deinit` : il tournerait `nonisolated` et ne pourrait pas toucher l'état
     // isolé MainActor. Le nettoyage passe par `deactivate()`, appelé par `RunView` en
     // `onDisappear` — tout futur site d'appel doit faire de même.
-    private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "TempoHIIT", category: "Audio")
+    private nonisolated let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "TempoHIIT", category: "Audio")
+
+    /// Les mutations d'`AVAudioSession` (`setCategory`, `setActive`) sont des IPC
+    /// synchrones vers `mediaserverd`. Avec une autre app audio active (Spotify), elles
+    /// peuvent bloquer plusieurs centaines de ms : sur le main thread elles gèleraient le
+    /// `RunLoop`, donc le `Timer` 20 Hz de `TimerEngine`, et décaleraient les bips du
+    /// décompte. On les sérialise ici — FIFO, donc le dernier état demandé par le main
+    /// actor est bien le dernier appliqué.
+    private nonisolated let sessionQueue = DispatchQueue(
+        label: (Bundle.main.bundleIdentifier ?? "TempoHIIT") + ".audio-session",
+        qos: .userInitiated
+    )
 
     private var players: [Cue: AVAudioPlayer] = [:]
 
@@ -52,7 +66,7 @@ final class AudioCueManager {
     // MARK: - Lifecycle
 
     func configure() {
-        configureSession(ducking: false)
+        applySession(ducking: false)
         setupPlayers()
     }
 
@@ -62,7 +76,7 @@ final class AudioCueManager {
         isDucking = false
         players.values.forEach { $0.stop() }
         players.removeAll()
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        deactivateSession()
     }
 
     // MARK: - Audio cues
@@ -81,12 +95,21 @@ final class AudioCueManager {
         duckRelease?.cancel()
         duckRelease = nil
         guard !isDucking else { return }
-        configureSession(ducking: true)
+        applySession(ducking: true)
         isDucking = true
     }
 
-    /// Rend son volume à la musique après `delay` secondes. Le délai doit rester
-    /// supérieur à la durée du cue en cours : `setActive(false)` coupe net la lecture.
+    /// Rend son volume à la musique après `delay` secondes.
+    ///
+    /// Deux contraintes sur `delay` :
+    /// - **supérieur à la durée du cue en cours**, sinon `setActive(false)` le coupe net ;
+    /// - **supérieur à l'intervalle jusqu'au cue suivant**, quand des cues s'enchaînent
+    ///   (le décompte, un bip par seconde). Sinon le relâchement tombe sur le
+    ///   `beginDucking()` suivant et on paie deux reconfigurations de session dos à dos.
+    ///
+    /// Quand la marge est respectée, le `beginDucking()` suivant annule le relâchement en
+    /// attente et l'atténuation est maintenue d'une traite sur toute la série de cues —
+    /// cf. `TimerEngine.countdownDuckRelease`.
     func endDuckingAfter(_ delay: TimeInterval) {
         duckRelease?.cancel()
         duckRelease = Task { [weak self] in
@@ -104,20 +127,46 @@ final class AudioCueManager {
     private func releaseDucking() {
         duckRelease = nil
         guard isDucking else { return }
-        configureSession(ducking: false)
+        applySession(ducking: false)
         isDucking = false
     }
 
     // MARK: - Private
 
+    /// Applique l'état de session demandé, hors main thread. L'état d'*intention*
+    /// (`isDucking`) reste, lui, sur le main actor : la file ne fait qu'exécuter.
+    ///
     /// `.duckOthers` implique déjà `.mixWithOthers` : les deux options ne se combinent pas.
-    private func configureSession(ducking: Bool) {
-        do {
-            let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playback, options: ducking ? [.duckOthers] : [.mixWithOthers])
-            try session.setActive(true)
-        } catch {
-            logger.error("AVAudioSession: \(error)")
+    private nonisolated func applySession(ducking: Bool) {
+        sessionQueue.async { [logger] in
+            #if DEBUG
+            // Trace le coût réel de l'IPC : c'est ce blocage qui, sur le main thread,
+            // gelait le timer et collait deux bips du décompte.
+            let startedAt = ContinuousClock.now
+            defer {
+                let elapsed = startedAt.duration(to: .now)
+                if elapsed > .milliseconds(50) {
+                    logger.warning("AVAudioSession lente (ducking: \(ducking)) : \(elapsed)")
+                }
+            }
+            #endif
+            do {
+                let session = AVAudioSession.sharedInstance()
+                try session.setCategory(.playback, options: ducking ? [.duckOthers] : [.mixWithOthers])
+                try session.setActive(true)
+            } catch {
+                logger.error("AVAudioSession (ducking: \(ducking)): \(error)")
+            }
+        }
+    }
+
+    private nonisolated func deactivateSession() {
+        sessionQueue.async { [logger] in
+            do {
+                try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+            } catch {
+                logger.error("AVAudioSession deactivate: \(error)")
+            }
         }
     }
 

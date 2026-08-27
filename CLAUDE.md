@@ -68,7 +68,18 @@ volée en WAV PCM (`AudioCueManager.Cue`) : aigu = effort, grave = récupératio
 **Ducking** : la session est en `.playback + .mixWithOthers` par défaut et bascule en
 `.duckOthers` (qui implique déjà `.mixWithOthers`) le temps du cue, via
 `beginDucking()` / `endDuckingAfter(_:)`. Le délai de relâche doit rester **supérieur** à la
-durée du cue, sinon `setActive(false)` le coupe net.
+durée du cue, sinon `setActive(false)` le coupe net — **et supérieur à l'intervalle jusqu'au
+cue suivant** quand des cues s'enchaînent. Sur le décompte (un bip par seconde), un délai
+de 1,0 s pile faisait tomber le relâchement exactement sur le bip suivant : aller-retour
+atténue/rend à chaque seconde, pompage audible et bip joué avant que l'atténuation ne soit
+en place. Avec la marge, le `beginDucking()` suivant annule le relâchement en attente et
+l'atténuation tient d'une traite de T-3 jusqu'au bip de transition.
+
+`setCategory` / `setActive` sont des IPC **synchrones** vers `mediaserverd` : avec une app
+audio tierce active (Spotify), un appel peut bloquer plusieurs centaines de ms. Toutes les
+mutations de session passent donc par `AudioCueManager.sessionQueue`, une file série dédiée
+— **ne jamais les ramener sur le main thread** : elles y gèleraient le `RunLoop`, donc le
+`Timer` 20 Hz de `TimerEngine`, ce qui décale ou fait sauter des bips du décompte.
 
 ## Conventions
 - Une vue par fichier. Sous-vues privées dans le même fichier si petites.
@@ -101,6 +112,9 @@ durée du cue, sinon `setActive(false)` le coupe net.
       (catalogue intégré de ~42 exercices en 5 catégories + noms déjà utilisés ailleurs). Le
       nom s'affiche dans le badge de `RunView` et dans la ligne « Ensuite », le libellé de
       phase restant sous le chrono. Migration vérifiée depuis un vrai store 1.1.
+- [x] v1.3 (build 5) — décompte fiable quand une app audio tierce (Spotify) est active :
+      le ducking n'est plus relâché entre les bips du décompte, et toutes les mutations
+      d'`AVAudioSession` sont sorties du main thread.
 
 > **Note API** : `.textInputSuggestions` (autocomplétion sous un `TextField`) est
 > `@available(iOS, unavailable)` — macOS 15 uniquement. Le menu de suggestions est donc
