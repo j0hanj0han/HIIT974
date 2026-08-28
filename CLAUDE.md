@@ -88,6 +88,9 @@ mutations de session passent donc par `AudioCueManager.sessionQueue`, une file s
 
 ## Build / run
 - Ouvrir dans Xcode, cible simulateur iPhone.
+- Serveur MCP **xcodebuild** (XcodeBuildMCP) configuré : build, install, lancement,
+  logs, captures et automatisation d'UI sur simulateur passent par ses outils plutôt
+  que par des appels `xcodebuild`/`simctl` à la main.
 - **iOS Deployment Target = 26.4** (Build Settings).
 - **Ne pas activer Background Modes → Audio** (cf. note 2.5.4 ci-dessous).
 - L'app est en production : toute évolution de schéma SwiftData doit être testée en
