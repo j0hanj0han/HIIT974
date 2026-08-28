@@ -1,4 +1,4 @@
-HIIT974 — Timer d'intervalles pour le HIIT, le tabata et le circuit training
+HIIT 974 — Timer d'intervalles pour le HIIT, le tabata et le circuit training
 
 Un chrono d'intervalles conçu pour être lu le téléphone posé par terre. Pas de compte, pas de connexion, pas de publicité : tu ouvres l'app et tu t'entraînes.
 
