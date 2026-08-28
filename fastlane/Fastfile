@@ -6,6 +6,8 @@
 #   fastlane build         archive Release + export .ipa signé app-store
 #   fastlane beta          bump + build + upload TestFlight
 #   fastlane verify        DRY-RUN : valide textes + captures, ne pousse rien
+#   fastlane status        état de l'app sur ASC (version live / version en préparation)
+#   fastlane fix_listing   corrige les textes de la version DÉJÀ PUBLIÉE (champ étroit)
 #   fastlane release       push métadonnées + captures + soumission pour revue
 #
 # Authentification : clé API App Store Connect (.p8), configurée dans fastlane/.env
@@ -20,10 +22,15 @@ default_platform(:ios)
 PROJECT = "HIIT974.xcodeproj"
 SCHEME  = "HIIT974"
 
-# Locale de référence pour les captures. L'app est francophone : la fiche en-US
-# montre les mêmes écrans, recopiés par la lane `screenshots`.
+# Locale de référence pour les captures. La fiche n'existe qu'en fr-FR sur ASC, et
+# MIRROR_LOCALES doit le rester : `deliver` déduit les langues à publier des dossiers
+# présents sous fastlane/metadata/ (`detect_languages`), puis `create_app_store_version_
+# localization` CRÉE sur ASC toute locale qu'il y trouve. Un dossier en-US contenant les
+# seules notes de version suffirait donc à ouvrir une fiche anglaise sans description —
+# qu'Apple refuse à la validation. Ouvrir une langue est un acte délibéré : traduire les
+# métadonnées EN ENTIER d'abord, ajouter la locale ici ensuite.
 PRIMARY_LOCALE = "fr-FR"
-MIRROR_LOCALES = ["en-US"]
+MIRROR_LOCALES = [].freeze
 
 # Le script de capture est porté par /appstore-prep au niveau user (source unique) ;
 # une copie locale dans le repo, si elle existe, l'emporte.
@@ -164,13 +171,74 @@ platform :ios do
     )
   end
 
+  desc "État de l'app sur App Store Connect (version live, version en préparation)"
+  lane :status do
+    # set_spaceship_token permet d'interroger l'API directement, hors des actions.
+    app_store_connect_api_key(
+      key_id:       ENV.fetch("ASC_KEY_ID"),
+      issuer_id:    ENV.fetch("ASC_ISSUER_ID"),
+      key_filepath: File.expand_path(ENV.fetch("ASC_KEY_PATH")),
+      set_spaceship_token: true
+    )
+
+    identifiant = CredentialsManager::AppfileConfig.try_fetch_value(:app_identifier)
+    app = Spaceship::ConnectAPI::App.find(identifiant)
+    plateforme = Spaceship::ConnectAPI::Platform::IOS
+
+    live = app.get_live_app_store_version(platform: plateforme)
+    edit = app.get_edit_app_store_version(platform: plateforme)
+
+    UI.message("app            : #{app.name} (#{app.id})")
+    UI.message("version live   : #{live ? "#{live.version_string} — #{live.app_store_state}" : "aucune"}")
+    UI.message("version édit.  : #{edit ? "#{edit.version_string} — #{edit.app_store_state}" : "AUCUNE"}")
+    UI.message("app info édit. : #{app.fetch_edit_app_info ? "présente" : "AUCUNE"}")
+    UI.message("app info live  : #{app.fetch_live_app_info ? "présente" : "aucune"}")
+  end
+
+  desc "Corrige les textes de la version DÉJÀ PUBLIÉE, sans nouvelle version"
+  lane :fix_listing do
+    # edit_live vise la version en vente plutôt qu'une version en préparation.
+    #
+    # ⚠️ PRÉREQUIS non évident : il faut malgré tout qu'une version soit en préparation
+    # sur ASC. upload_metadata.rb appelle fetch_edit_app_info AVANT de brancher sur
+    # edit_live ; sans app info éditable il renvoie nil, deliver réessaie en backoff
+    # exponentiel puis abandonne. Vérifier avec `fastlane status` d'abord.
+    #
+    # Et même débloqué, le champ d'action est étroit — LOCALISED_LIVE_VALUES :
+    # description, release_notes, support_url, marketing_url, promotional_text,
+    # privacy_url, copyright. Ni keywords, ni name, ni subtitle, ni captures.
+    upload_to_app_store(
+      api_key:            asc_key,
+      edit_live:          true,
+      skip_binary_upload: true,
+      skip_screenshots:   true,
+      # Aucune version n'est soumise ici : submit_for_review resterait sans objet.
+      force:              true,
+      precheck_include_in_app_purchases: false
+    )
+  end
+
   desc "Push métadonnées + captures + soumission pour revue"
   lane :release do
+    # Sans binaire (`skip_binary_upload`), deliver ne déduit aucune version : son
+    # `detect_values` ne lit `app_version` que dans l'ipa/pkg. Nil, il saute
+    # `verify_version` (runner.rb:58) et `upload_metadata` part chercher une version
+    # éditable qui n'existe pas — même impasse en backoff que `fix_listing`. Passée
+    # explicitement, la valeur atteint `ensure_version!`, qui CRÉE la version sur ASC
+    # (`post_app_store_version`) quand aucune n'est en préparation.
+    version = get_version_number(xcodeproj: PROJECT, target: SCHEME)
+    UI.important("Fiche poussée sur la version #{version} (créée sur ASC si absente).")
+
     upload_to_app_store(
       api_key:               asc_key,
+      app_version:           version,
       skip_binary_upload:    true,
       overwrite_screenshots: true,
       submit_for_review:     true,
+      # Même contrainte que dans `verify` : precheck tourne automatiquement avant
+      # soumission et ne sait pas inspecter les achats intégrés avec une clé API.
+      # Sans ce false, la lane échoue au dernier moment, après l'envoi des textes.
+      precheck_include_in_app_purchases: false,
       # La mise en vente reste déclenchée à la main une fois l'app approuvée.
       automatic_release:     false,
       # Pas de confirmation interactive : le gate est humain, en amont de la lane.
