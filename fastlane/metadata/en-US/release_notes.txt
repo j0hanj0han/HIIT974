@@ -1,4 +1,5 @@
-A fix for a bug you reported.
+Readable from across the room.
 
-• Reliable countdown over music — when Spotify or another music app was playing, the three countdown beeps could overlap, or one could go missing entirely. Fixed.
-• No more volume pumping — the music is no longer ducked and restored every second of the countdown: it dips once, for the beeps, then comes back.
+• Twice the timer — the ring now spans the full width of the screen and the countdown grows from 76 to 113 points. Put your phone on the floor and you can still read the time left without stepping closer.
+• A much bigger exercise name — the badge above the ring is now large and bold, along with the phase label, the round counters and the "Up next" line.
+• The finished screen gets the same treatment.

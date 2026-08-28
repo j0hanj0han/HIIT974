@@ -115,12 +115,32 @@ mutations de session passent donc par `AudioCueManager.sessionQueue`, une file s
 - [x] v1.3 (build 5) — décompte fiable quand une app audio tierce (Spotify) est active :
       le ducking n'est plus relâché entre les bips du décompte, et toutes les mutations
       d'`AVAudioSession` sont sorties du main thread.
+- [x] v1.4 (build 6) — `RunView` lisible à distance : l'anneau occupe toute la largeur
+      disponible et toutes les tailles de texte de l'écran de séance en découlent.
+      Cf. « Typographie de RunView » ci-dessous.
 
 > **Note API** : `.textInputSuggestions` (autocomplétion sous un `TextField`) est
 > `@available(iOS, unavailable)` — macOS 15 uniquement. Le menu de suggestions est donc
 > construit à la main avec des `Menu` imbriqués, qui se rendent en sous-menus natifs.
 > Dans une ligne de `Form`, un `Menu` voisin d'un `TextField` **doit** porter
 > `.buttonStyle(.borderless)`, sinon il capte le tap de toute la ligne.
+
+> **Typographie de `RunView` (v1.4)** : l'écran de séance doit se lire **le téléphone
+> posé par terre**. À 3 m il faut ~15 mm de hauteur de capitale, soit ~140 pt de police
+> (1 pt ≈ 0,156 mm sur iPhone) — impossible sans supprimer l'anneau, qui reste la
+> signature visuelle du Jalon 8. Compromis retenu : l'anneau prend toute la largeur, et
+> **c'est son diamètre qui dérive toutes les tailles** (`ringTimer(diameter:)`), donc la
+> distance de lecture. Sur iPhone 16 Pro : anneau ~353 pt, chrono ~113 pt (cap ≈ 11,6 mm,
+> confortable à ~2,3 m). Deux pièges :
+> - Le tracé d'un `Circle().stroke()` **déborde du frame de la moitié de son épaisseur** :
+>   sans l'intégrer au calcul du diamètre, l'anneau mord les bords de l'écran.
+> - Le chrono est inscrit dans le cercle : il tient dans une **corde**, pas dans le
+>   diamètre (d'où le `frame(width: diameter * 0.74)`). Le `minimumScaleFactor` ne sert
+>   qu'au cas « 10:00 », cinq caractères au lieu de quatre.
+>
+> Les tailles sont **fixes**, pas des styles Dynamic Type : elles sont déjà bien au-delà
+> de ce que produirait n'importe quel réglage système, et la mise en page ne survivrait
+> pas aux tailles d'accessibilité.
 
 > **Jalon 8 décisions** :
 > - RunView : fond plein écran couleur segment, anneau circulaire, glassEffect iOS 26 sur contrôles
