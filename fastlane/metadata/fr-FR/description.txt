@@ -1,0 +1,23 @@
+HIIT974 — Timer d'intervalles pour le HIIT, le tabata et le circuit training
+
+Un chrono d'intervalles conçu pour être lu le téléphone posé par terre. Pas de compte, pas de connexion, pas de publicité : tu ouvres l'app et tu t'entraînes.
+
+LISIBLE À DISTANCE
+Le compte à rebours occupe toute la largeur de l'écran, entouré d'un anneau de progression, et le nom de l'exercice en cours reste affiché en gros caractères. Pose ton iPhone au sol ou sur un banc : tu sais où tu en es d'un coup d'œil, sans t'interrompre et sans t'approcher. L'écran reste allumé pendant toute la séance.
+
+UNE SÉANCE, SIX RÉGLAGES
+Mise en place, effort, repos, nombre d'exercices, nombre de rounds, récupération entre les rounds. C'est tout. Le repos et la récupération peuvent être mis à zéro si tu enchaînes sans pause. Chaque phase a sa couleur, tu la reconnais sans lire.
+
+NOMME TES EXERCICES
+Choisis parmi un catalogue de mouvements classés par famille — cardio, haut du corps, bas du corps, gainage, mobilité — ou saisis les tiens. Le nom s'affiche pendant l'effort, et la ligne « Ensuite » annonce ce qui arrive.
+
+DES SIGNAUX QUE TU ENTENDS SANS REGARDER
+Décompte des trois dernières secondes, signal à la moitié de chaque effort, bip de changement de phase : aigu pour l'effort, grave pour la récupération. Ta musique continue de jouer — elle est simplement atténuée le temps du signal, puis revient.
+
+TON HISTORIQUE
+Chaque séance terminée est enregistrée automatiquement. Tu retrouves ton nombre de séances, ton temps total, ton activité en graphique, et le détail de chaque séance : date, heure et durée.
+
+100 % HORS LIGNE
+Aucun compte, aucune inscription, aucune donnée envoyée nulle part. Tout reste sur ton iPhone.
+
+À noter : les signaux sonores demandent que l'app reste affichée à l'écran. C'est le principe de l'app — tu poses ton téléphone bien en vue et tu lis ta séance de loin.

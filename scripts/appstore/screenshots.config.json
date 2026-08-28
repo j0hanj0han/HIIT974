@@ -3,7 +3,7 @@
   "scheme": "HIIT974",
   "bundleId": "johanchapelain.HIIT974",
   "simulator": "iPhone 17 Pro Max",
-  "outputDir": "screenshots",
+  "outputDir": "fastlane/screenshots/fr-FR",
   "statusBarTime": "9:41",
   "expectedWidth": 1320,
   "expectedHeight": 2868,

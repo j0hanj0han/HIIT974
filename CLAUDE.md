@@ -88,11 +88,64 @@ mutations de session passent donc par `AudioCueManager.sessionQueue`, une file s
 
 ## Build / run
 - Ouvrir dans Xcode, cible simulateur iPhone.
+- Serveur MCP **xcodebuild** (XcodeBuildMCP) configuré : build, install, lancement,
+  logs, captures et automatisation d'UI sur simulateur passent par ses outils plutôt
+  que par des appels `xcodebuild`/`simctl` à la main.
 - **iOS Deployment Target = 26.4** (Build Settings).
 - **Ne pas activer Background Modes → Audio** (cf. note 2.5.4 ci-dessous).
 - L'app est en production : toute évolution de schéma SwiftData doit être testée en
   *upgrade* (installer la version précédente, créer des données, installer par-dessus sans
   désinstaller), pas seulement en installation neuve.
+
+## Release avec fastlane
+`fastlane` (Homebrew) pilote la chaîne App Store. Le repo est la **source de vérité** des
+métadonnées et des captures ; App Store Connect n'est plus saisi à la main.
+
+| Lane | Fait quoi |
+|---|---|
+| `fastlane screenshots` | capture les 5 écrans sur simulateur → `fastlane/screenshots/fr-FR/`, recopie vers `en-US/` |
+| `fastlane pull` | rapatrie les métadonnées **publiées** depuis ASC — **écrase** `fastlane/metadata/` |
+| `fastlane bump` | `CURRENT_PROJECT_VERSION` = dernier build sur ASC + 1 |
+| `fastlane build` | archive Release + export `.ipa` signé app-store dans `build/` |
+| `fastlane beta` | `bump` + `build` + upload TestFlight |
+| `fastlane verify` | **DRY-RUN** : `Preview.html` (ce qui serait poussé) + precheck des motifs de rejet |
+| `fastlane release` | push métadonnées + captures + **soumission pour revue** |
+
+Ordre d'une release : `screenshots` → `beta` → **test sur iPhone réel** → `verify` →
+`release`. Le gate device n'est pas optionnel : le rejet 2.5.4 est passé au travers d'un
+audit statique au vert et d'un build Release qui compilait (cf. section ci-dessous).
+
+- **Authentification** : clé API App Store Connect (`.p8`), jamais l'Apple ID. Les trois
+  valeurs vivent dans `fastlane/.env`, git-ignoré — voir `fastlane/.env.example`. Ne
+  jamais committer le `.p8` ni les IDs.
+- **`MARKETING_VERSION`** (ex. 1.4) reste piloté à la main dans Xcode : c'est une décision
+  produit. Seul le build number est automatisé.
+- **`VERSIONING_SYSTEM = apple-generic`** est requis dans les Build Settings, sinon
+  `increment_build_number` échoue (`agvtool` ne sait pas où écrire).
+- `deliver` ne pousse **que les fichiers présents** dans `fastlane/metadata/<locale>/` :
+  un champ sans fichier local reste intact en ligne. D'où `pull` avant toute modification.
+- **La fiche n'existe qu'en `fr-FR`** sur ASC : `pull` ne ramène rien pour `en-US`, et
+  `Preview.html` ne liste que le français. Le `fastlane/metadata/en-US/release_notes.txt`
+  du repo ne correspond à aucune localisation en ligne — il n'est pas poussé.
+- Deux options ne sont pas cosmétiques, elles conditionnent le fonctionnement :
+  `download_metadata` **exige `--force`** (sans TTY il ne pose pas sa question de
+  confirmation et sort silencieusement en `return 0`, sans rien écrire ni signaler) ;
+  `check_app_store_metadata` **exige `include_in_app_purchases: false`** (precheck ne sait
+  pas inspecter les achats intégrés avec une clé API et échoue sinon).
+- `verify_only` de `upload_to_app_store` porte sur le **binaire**, pas sur les textes : ce
+  n'est pas un dry-run de métadonnées. D'où `deliver generate_summary` dans `verify`, qui
+  écrit `Preview.html` **à la racine du repo** (git-ignoré) sans rien envoyer.
+- **Le repo est public** : `fastlane/metadata/review_information/` (téléphone et e-mail
+  perso du contact de revue) est git-ignoré. Il vit sur ASC, `pull` le régénère.
+- Les captures sont poussées dans l'**ordre alphabétique** des noms de fichiers : la
+  numérotation `01-…` à `05-…` encode l'ordre marketing de la fiche.
+- `capture-screenshots.sh` n'est pas dans le repo : il est porté par la command
+  `/appstore-prep` (`~/.claude/appstore-prep/scripts/`), que la lane `screenshots`
+  résout automatiquement. Les écrans à capturer, eux, sont décrits dans
+  `scripts/appstore/screenshots.config.json`.
+
+Restent manuels par nature : la génération de la clé API (une fois, GUI Apple), le choix
+de la version marketing et la rédaction des notes, le test sur device, et la revue Apple.
 
 ## État courant
 - [x] Jalon 0 — setup projet + navigation

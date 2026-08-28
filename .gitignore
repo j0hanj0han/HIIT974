@@ -42,3 +42,16 @@ Thumbs.db
 # Claude
 .claude/
 PLAN.md
+
+# fastlane
+fastlane/.env
+# régénéré à chaque run ; la doc de référence est dans CLAUDE.md
+fastlane/README.md
+fastlane/report.xml
+Preview.html
+fastlane/test_output/
+fastlane/screenshots/en-US/
+# contact de revue (téléphone, e-mail perso) — le repo est PUBLIC.
+# Vit sur ASC, `fastlane pull` le régénère à la demande.
+fastlane/metadata/review_information/
+*.p8
