@@ -51,7 +51,11 @@ fastlane/report.xml
 Preview.html
 fastlane/test_output/
 fastlane/screenshots/en-US/
-# contact de revue (téléphone, e-mail perso) — le repo est PUBLIC.
-# Vit sur ASC, `fastlane pull` le régénère à la demande.
-fastlane/metadata/review_information/
+# identité du contact de revue — le repo est PUBLIC. Vit sur ASC, `pull` la régénère.
+# Ignorer le dossier entier emporterait notes.txt, qui n'a rien de perso et mérite
+# d'être versionné : on ne cible donc que les quatre fichiers d'identité.
+fastlane/metadata/review_information/first_name.txt
+fastlane/metadata/review_information/last_name.txt
+fastlane/metadata/review_information/email_address.txt
+fastlane/metadata/review_information/phone_number.txt
 *.p8

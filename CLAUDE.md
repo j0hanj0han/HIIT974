@@ -135,8 +135,10 @@ audit statique au vert et d'un build Release qui compilait (cf. section ci-desso
 - `verify_only` de `upload_to_app_store` porte sur le **binaire**, pas sur les textes : ce
   n'est pas un dry-run de métadonnées. D'où `deliver generate_summary` dans `verify`, qui
   écrit `Preview.html` **à la racine du repo** (git-ignoré) sans rien envoyer.
-- **Le repo est public** : `fastlane/metadata/review_information/` (téléphone et e-mail
-  perso du contact de revue) est git-ignoré. Il vit sur ASC, `pull` le régénère.
+- **Le repo est public** : dans `fastlane/metadata/review_information/`, seuls les quatre
+  fichiers d'identité du contact de revue (nom, prénom, e-mail, téléphone) sont
+  git-ignorés. Ils vivent sur ASC, `pull` les régénère. `notes.txt` — la note au
+  reviewer, longue et écrite à la main — est versionné : il ne contient rien de perso.
 - Les captures sont poussées dans l'**ordre alphabétique** des noms de fichiers : la
   numérotation `01-…` à `05-…` encode l'ordre marketing de la fiche.
 - `capture-screenshots.sh` n'est pas dans le repo : il est porté par la command
