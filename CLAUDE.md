@@ -110,6 +110,9 @@ métadonnées et des captures ; App Store Connect n'est plus saisi à la main.
 | `fastlane beta` | `bump` + `build` + upload TestFlight |
 | `fastlane verify` | **DRY-RUN** : `Preview.html` (ce qui serait poussé) + precheck des motifs de rejet |
 | `fastlane status` | lecture seule : version live, version en préparation, app info éditable |
+| `fastlane screenshots_status` | lecture seule : compte les captures en ligne, signale les doublons |
+| `fastlane withdraw` | retire la version en préparation de la file de revue Apple |
+| `fastlane dedupe_screenshots` | supprime les captures en double sur la version en préparation |
 | `fastlane fix_listing` | corrige les textes de la version **déjà publiée** (champ très étroit, voir plus bas) |
 | `fastlane release` | push métadonnées + captures + **soumission pour revue** |
 
@@ -148,6 +151,19 @@ audit statique au vert et d'un build Release qui compilait (cf. section ci-desso
   reviewer, longue et écrite à la main — est versionné : il ne contient rien de perso.
 - Les captures sont poussées dans l'**ordre alphabétique** des noms de fichiers : la
   numérotation `01-…` à `05-…` encode l'ordre marketing de la fiche.
+- **`release` peut laisser chaque capture en double — vérifier après coup.** Après
+  l'envoi, `deliver` contrôle que les captures sont bien arrivées en appariant les
+  fichiers locaux à ceux d'ASC par leur `source_file_checksum`, que l'API ne renseigne
+  qu'**après coup, de façon asynchrone**. Interrogée trop tôt, elle répond « aucune » :
+  deliver conclut à un échec et rejoue l'envoi. Or son nettoyage de reprise n'efface
+  que les captures pas encore `complete?` — les premières, déjà traitées, survivent, et
+  le second envoi s'ajoute. Chaque écran se retrouve en double, plafonné à 10 par set
+  par le garde-fou `< 10`. C'est arrivé sur la 1.4.1 le 2026-08-28. Le log le dit, à
+  condition de repérer la ligne rouge `… is missing on App Store Connect` suivie de
+  `Tries remaining` au milieu des lignes vertes. **Réflexe : `fastlane
+  screenshots_status` après chaque `release`.** Réparation : `withdraw` (l'édition des
+  captures est verrouillée en `WAITING_FOR_REVIEW`), `dedupe_screenshots`, puis
+  `release skip_screenshots:true` — renvoyer les mêmes fichiers rejouerait la course.
 - **Corriger la fiche d'une version déjà en vente est presque impossible.** Une fois la
   version `READY_FOR_SALE` et aucune version en préparation, `release` n'a pas de cible :
   ASC n'accepte de nouveaux textes que sur une version éditable. `fix_listing`
