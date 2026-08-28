@@ -109,6 +109,8 @@ métadonnées et des captures ; App Store Connect n'est plus saisi à la main.
 | `fastlane build` | archive Release + export `.ipa` signé app-store dans `build/` |
 | `fastlane beta` | `bump` + `build` + upload TestFlight |
 | `fastlane verify` | **DRY-RUN** : `Preview.html` (ce qui serait poussé) + precheck des motifs de rejet |
+| `fastlane status` | lecture seule : version live, version en préparation, app info éditable |
+| `fastlane fix_listing` | corrige les textes de la version **déjà publiée** (champ très étroit, voir plus bas) |
 | `fastlane release` | push métadonnées + captures + **soumission pour revue** |
 
 Ordre d'une release : `screenshots` → `beta` → **test sur iPhone réel** → `verify` →
@@ -125,8 +127,13 @@ audit statique au vert et d'un build Release qui compilait (cf. section ci-desso
 - `deliver` ne pousse **que les fichiers présents** dans `fastlane/metadata/<locale>/` :
   un champ sans fichier local reste intact en ligne. D'où `pull` avant toute modification.
 - **La fiche n'existe qu'en `fr-FR`** sur ASC : `pull` ne ramène rien pour `en-US`, et
-  `Preview.html` ne liste que le français. Le `fastlane/metadata/en-US/release_notes.txt`
-  du repo ne correspond à aucune localisation en ligne — il n'est pas poussé.
+  `Preview.html` ne liste que le français. Attention, un dossier de locale dans
+  `fastlane/metadata/` n'est pas inerte : `deliver` déduit les langues à publier des
+  dossiers présents (`detect_languages`), puis `verify_available_version_languages!`
+  **crée** sur ASC celles qui manquent. Le `fastlane/metadata/en-US/release_notes.txt`
+  qui traînait dans le repo aurait donc ouvert une fiche anglaise sans description, que
+  la validation Apple refuse — il a été supprimé, comme le miroir `screenshots/en-US/`
+  (`MIRROR_LOCALES` est vide). Ouvrir une langue se fait métadonnées traduites en main.
 - Deux options ne sont pas cosmétiques, elles conditionnent le fonctionnement :
   `download_metadata` **exige `--force`** (sans TTY il ne pose pas sa question de
   confirmation et sort silencieusement en `return 0`, sans rien écrire ni signaler) ;
@@ -141,6 +148,19 @@ audit statique au vert et d'un build Release qui compilait (cf. section ci-desso
   reviewer, longue et écrite à la main — est versionné : il ne contient rien de perso.
 - Les captures sont poussées dans l'**ordre alphabétique** des noms de fichiers : la
   numérotation `01-…` à `05-…` encode l'ordre marketing de la fiche.
+- **Corriger la fiche d'une version déjà en vente est presque impossible.** Une fois la
+  version `READY_FOR_SALE` et aucune version en préparation, `release` n'a pas de cible :
+  ASC n'accepte de nouveaux textes que sur une version éditable. `fix_listing`
+  (`edit_live: true`) vise la version en vente, mais deux limites se cumulent :
+  `deliver` n'y écrit que `LOCALISED_LIVE_VALUES` — description, notes de version,
+  URLs, texte promotionnel, copyright : **ni nom, ni sous-titre, ni mots-clés, ni
+  captures** ; et `upload_metadata.rb` appelle `fetch_edit_app_info` **avant** de
+  brancher sur `edit_live`, donc sans version en préparation il boucle en backoff
+  exponentiel puis abandonne. Vérifier avec `fastlane status` avant d'essayer.
+  Conséquence pratique : nom, sous-titre et mots-clés ne changent qu'en soumettant une
+  nouvelle version — et une version a besoin d'un build neuf, un build déjà publié ne
+  se réutilise pas. Le chemin est donc `MARKETING_VERSION` à la main → `beta` →
+  device → `verify` → `release`.
 - `capture-screenshots.sh` n'est pas dans le repo : il est porté par la command
   `/appstore-prep` (`~/.claude/appstore-prep/scripts/`), que la lane `screenshots`
   résout automatiquement. Les écrans à capturer, eux, sont décrits dans

@@ -1,4 +1,3 @@
-Lisible depuis l'autre bout de la pièce.
-• Chrono deux fois plus grand — l'anneau occupe désormais toute la largeur de l'écran et le compte à rebours passe de 76 à 113 points. Posez le téléphone au sol : vous lisez le temps restant sans vous rapprocher.
-• Nom de l'exercice bien plus visible — le badge au-dessus de l'anneau passe en gros caractères gras, comme le libellé de phase, les compteurs de round et la ligne « Ensuite ».
-• L'écran de fin s'agrandit aussi, dans le même esprit.
+Cette version ne modifie pas l'app : le chrono, les sons et l'historique sont ceux de la 1.4.
+
+Elle accompagne la mise à jour de la fiche App Store — nom, sous-titre, description et mots-clés — pour décrire enfin ce que fait réellement HIIT 974 : un timer d'intervalles lisible le téléphone posé par terre, entièrement hors ligne.
