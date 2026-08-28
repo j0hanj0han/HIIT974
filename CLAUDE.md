@@ -193,6 +193,9 @@ de la version marketing et la rédaction des notes, le test sur device, et la re
 - [x] v1.4 (build 6) — `RunView` lisible à distance : l'anneau occupe toute la largeur
       disponible et toutes les tailles de texte de l'écran de séance en découlent.
       Cf. « Typographie de RunView » ci-dessous.
+- [x] v1.4.1 (build 7) — **aucun changement de code**. Version créée pour porter la fiche
+      App Store corrigée (nom « HIIT 974 », sous-titre, mots-clés, description réécrite),
+      qu'ASC refusait d'accepter sur la 1.4 déjà en vente. Soumise le 2026-08-28.
 
 > **Note API** : `.textInputSuggestions` (autocomplétion sous un `TextField`) est
 > `@available(iOS, unavailable)` — macOS 15 uniquement. Le menu de suggestions est donc
