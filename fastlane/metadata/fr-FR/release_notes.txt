@@ -1,5 +1,4 @@
 Lisible depuis l'autre bout de la pièce.
-
 • Chrono deux fois plus grand — l'anneau occupe désormais toute la largeur de l'écran et le compte à rebours passe de 76 à 113 points. Posez le téléphone au sol : vous lisez le temps restant sans vous rapprocher.
 • Nom de l'exercice bien plus visible — le badge au-dessus de l'anneau passe en gros caractères gras, comme le libellé de phase, les compteurs de round et la ligne « Ensuite ».
 • L'écran de fin s'agrandit aussi, dans le même esprit.

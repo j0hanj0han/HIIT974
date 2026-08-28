@@ -1,0 +1,11 @@
+# Appfile — identité de l'app pour fastlane.
+#
+# L'authentification passe par une clé API App Store Connect (.p8), pas par l'Apple ID :
+# voir fastlane/.env.example et la section « Release avec fastlane » de CLAUDE.md.
+
+app_identifier("johanchapelain.HIIT974")
+team_id("Y9AYD8D26T")
+
+# apple_id("…")  # identifiant numérique de l'app dans App Store Connect.
+#                # Facultatif : fastlane le résout depuis app_identifier. Le renseigner
+#                # économise un aller-retour réseau à chaque lane.

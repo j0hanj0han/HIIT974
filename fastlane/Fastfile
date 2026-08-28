@@ -1,0 +1,185 @@
+# Fastfile — chaîne de release App Store de TempoHIIT (HIIT 974).
+#
+#   fastlane screenshots   captures simulateur → fastlane/screenshots/<locale>/
+#   fastlane pull          rapatrie les métadonnées publiées depuis App Store Connect
+#   fastlane bump          build number = dernier build sur ASC + 1
+#   fastlane build         archive Release + export .ipa signé app-store
+#   fastlane beta          bump + build + upload TestFlight
+#   fastlane verify        DRY-RUN : valide textes + captures, ne pousse rien
+#   fastlane release       push métadonnées + captures + soumission pour revue
+#
+# Authentification : clé API App Store Connect (.p8), configurée dans fastlane/.env
+# (git-ignoré). Voir fastlane/.env.example.
+#
+# ⚠️ `release` soumet réellement à la revue Apple. Le gate est humain : ne jamais
+# l'enchaîner automatiquement après `beta` sans avoir testé le build sur iPhone réel,
+# écran verrouillé compris (cf. le rejet 2.5.4 documenté dans CLAUDE.md).
+
+default_platform(:ios)
+
+PROJECT = "HIIT974.xcodeproj"
+SCHEME  = "HIIT974"
+
+# Locale de référence pour les captures. L'app est francophone : la fiche en-US
+# montre les mêmes écrans, recopiés par la lane `screenshots`.
+PRIMARY_LOCALE = "fr-FR"
+MIRROR_LOCALES = ["en-US"]
+
+# Le script de capture est porté par /appstore-prep au niveau user (source unique) ;
+# une copie locale dans le repo, si elle existe, l'emporte.
+SCREENSHOT_SCRIPT_CANDIDATES = [
+  "scripts/appstore/capture-screenshots.sh",
+  File.expand_path("~/.claude/appstore-prep/scripts/capture-screenshots.sh")
+].freeze
+
+# Racine du repo. Les lanes s'exécutent depuis fastlane/, or les scripts et la config
+# de captures raisonnent en chemins relatifs à la racine.
+def repo_root
+  File.expand_path("..", __dir__)
+end
+
+def asc_key
+  app_store_connect_api_key(
+    key_id:       ENV.fetch("ASC_KEY_ID"),
+    issuer_id:    ENV.fetch("ASC_ISSUER_ID"),
+    key_filepath: File.expand_path(ENV.fetch("ASC_KEY_PATH"))
+  )
+end
+
+# Certaines opérations de deliver (download_metadata, generate_summary) n'existent
+# qu'en sous-commandes CLI, sans action équivalente. Elles veulent la clé au format
+# JSON : on la matérialise le temps de l'appel, dans un dossier temporaire.
+def deliver_cli(*args)
+  require "json"
+  require "tmpdir"
+
+  Dir.mktmpdir do |dir|
+    key_json = File.join(dir, "asc_api_key.json")
+    File.write(key_json, JSON.pretty_generate(
+      "key_id"    => ENV.fetch("ASC_KEY_ID"),
+      "issuer_id" => ENV.fetch("ASC_ISSUER_ID"),
+      "key"       => File.read(File.expand_path(ENV.fetch("ASC_KEY_PATH")))
+    ))
+    File.chmod(0o600, key_json)
+
+    # Les chemins de deliver (metadata_path, screenshots_path) sont relatifs au cwd,
+    # qui vaut fastlane/ dans une lane : il faut repasser à la racine du repo.
+    Dir.chdir(repo_root) do
+      sh("fastlane", "deliver", *args, "--api_key_path", key_json)
+    end
+  end
+end
+
+platform :ios do
+  desc "Captures simulateur → fastlane/screenshots/<locale>/"
+  lane :screenshots do
+    script = SCREENSHOT_SCRIPT_CANDIDATES
+             .map { |path| path.start_with?("/") ? path : File.join(repo_root, path) }
+             .find { |path| File.exist?(path) }
+    UI.user_error!(
+      "capture-screenshots.sh introuvable. Il est fourni par /appstore-prep " \
+      "(~/.claude/appstore-prep/scripts/) — relance la command, ou copie le script " \
+      "dans scripts/appstore/."
+    ) if script.nil?
+
+    Dir.chdir(repo_root) do
+      sh("bash", script, "scripts/appstore/screenshots.config.json")
+    end
+
+    source = File.join(repo_root, "fastlane/screenshots", PRIMARY_LOCALE)
+    MIRROR_LOCALES.each do |locale|
+      target = File.join(repo_root, "fastlane/screenshots", locale)
+      FileUtils.rm_rf(target)
+      FileUtils.mkdir_p(target)
+      FileUtils.cp_r(Dir.glob(File.join(source, "*.png")), target)
+      UI.success("Captures recopiées vers #{locale}/")
+    end
+  end
+
+  desc "Rapatrie les métadonnées publiées depuis ASC (ÉCRASE fastlane/metadata/)"
+  lane :pull do
+    # --force est obligatoire, pas cosmétique : sans lui, download_metadata demande
+    # « overwrite existing metadata? » et, hors TTY, sort silencieusement en return 0
+    # sans rien écrire ni rien signaler. Écraser le local est précisément le but ici.
+    deliver_cli("download_metadata", "--force", "true")
+    UI.important("fastlane/metadata/ écrasé par ce qui est publié sur ASC — `git diff` pour l'écart.")
+  end
+
+  desc "Build number = dernier build sur App Store Connect + 1"
+  lane :bump do
+    # Le max des deux garde-fous : ASC peut être en avance (build uploadé d'ailleurs)
+    # comme muet (aucun build pour une MARKETING_VERSION fraîchement créée, auquel cas
+    # initial_build_number renvoie 0). Le numéro ne peut jamais régresser.
+    remote = app_store_build_number(api_key: asc_key, live: false, initial_build_number: 0)
+    local  = get_build_number(xcodeproj: PROJECT).to_i
+    next_build = [remote.to_i, local].max + 1
+
+    increment_build_number(build_number: next_build, xcodeproj: PROJECT)
+    UI.success("CURRENT_PROJECT_VERSION #{local} → #{next_build} (ASC : #{remote})")
+  end
+
+  desc "Archive Release + export .ipa signé app-store"
+  lane :build do
+    build_app(
+      project:          PROJECT,
+      scheme:           SCHEME,
+      configuration:    "Release",
+      export_method:    "app-store",
+      output_directory: "build",
+      output_name:      "#{SCHEME}.ipa",
+      # La signature est en Automatic : xcodebuild doit avoir le droit de créer /
+      # rafraîchir le profil de provisioning sans passer par l'UI Xcode.
+      xcargs:           "-allowProvisioningUpdates",
+      clean:            true
+    )
+  end
+
+  desc "bump + build + upload TestFlight"
+  lane :beta do
+    bump
+    build
+    upload_to_testflight(
+      api_key: asc_key,
+      skip_waiting_for_build_processing: true
+    )
+    UI.important("Build envoyé. Teste-le sur iPhone RÉEL avant `fastlane release`.")
+  end
+
+  desc "DRY-RUN : résumé de ce qui serait poussé + scan des motifs de rejet"
+  lane :verify do
+    # `verify_only` de upload_to_app_store porte sur le BINAIRE, pas sur les textes :
+    # ce n'est pas le dry-run recherché ici. generate_summary, lui, lit le contenu
+    # local et écrit Preview.html (racine du repo, git-ignoré) sans rien envoyer.
+    # --force évite qu'il ouvre le fichier dans le navigateur.
+    deliver_cli("generate_summary", "--force", "true")
+    UI.success("Résumé de la fiche : ouvre Preview.html à la racine du repo.")
+
+    # precheck confronte la fiche aux motifs de rejet connus d'Apple.
+    # include_in_app_purchases: false est requis, pas optionnel — precheck ne sait pas
+    # inspecter les achats intégrés avec une clé API et échoue sinon. L'app n'en a aucun.
+    check_app_store_metadata(
+      api_key:                 asc_key,
+      default_rule_level:      :warn,
+      include_in_app_purchases: false
+    )
+  end
+
+  desc "Push métadonnées + captures + soumission pour revue"
+  lane :release do
+    upload_to_app_store(
+      api_key:               asc_key,
+      skip_binary_upload:    true,
+      overwrite_screenshots: true,
+      submit_for_review:     true,
+      # La mise en vente reste déclenchée à la main une fois l'app approuvée.
+      automatic_release:     false,
+      # Pas de confirmation interactive : le gate est humain, en amont de la lane.
+      force:                 true,
+      submission_information: {
+        add_id_info_uses_idfa: false
+        # export_compliance_uses_encryption n'est pas passé : ITSAppUsesNonExemptEncryption
+        # est déjà à false dans HIIT974/Info.plist, Apple ne pose plus la question.
+      }
+    )
+  end
+end
