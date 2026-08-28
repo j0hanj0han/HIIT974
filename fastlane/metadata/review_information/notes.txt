@@ -1,0 +1,62 @@
+HIIT 974 is an offline HIIT / interval training timer. No account, no login, no
+credentials, no in-app purchases, no subscriptions, no user-generated content.
+
+No permission prompts: the app requests no access to location, contacts, camera, photos,
+microphone, health data, or App Tracking Transparency.
+
+No external services and no network access at all: no URLSession, no WKWebView, no
+third-party SDK, no analytics, no ads, no backend, no AI service. Apple system
+frameworks only (SwiftUI, SwiftData, Swift Charts, AVFoundation). The app works fully in
+airplane mode. All data is stored locally on device and never leaves it.
+
+Functions identically in all regions. No regulated-industry content, no health claims,
+no HealthKit, no third-party intellectual property.
+
+AUDIO AND BACKGROUND EXECUTION: audio cues are short tones played only while the app is
+in the foreground. UIBackgroundModes is not declared and no MediaPlayer / Now Playing
+integration is present. The app plays nothing in the background or on the lock screen,
+by design, following the 2.5.4 feedback on version 1.0. The workout screen keeps the
+display awake so the timer stays visible.
+
+WHAT'S NEW IN 1.4: the workout screen was rebuilt to be readable from a distance, with
+the phone lying on the floor. The progress ring now spans the full width of the screen
+and every text size on that screen derives from its diameter: the countdown grows from
+76 to 113 points, and the exercise name, phase label, round counters and the "Ensuite"
+(Up next) line grow accordingly. The end-of-workout screen follows the same scale. No
+new capability or data, no change to permissions or audio.
+
+SINCE THE 1.1 NOTES: 1.2 added optional exercise names, typed freely or picked from a
+built-in list of about 40 movements. 1.3 fixed the countdown beeps when a third-party
+music app is active.
+
+HOW TO TEST: no setup required. Two sample workouts are created on first launch,
+"Tabata" (20 s work / 10 s rest, 8 exercises, 1 round, each exercise named) and "HIIT
+Full Body" (40 s work / 20 s rest, 5 exercises, 3 rounds, 30 s recovery between rounds).
+
+Tap a workout row in the "Séances" (Workouts) tab to open the timer, then tap the
+central play button. The screen turns orange for a 10-second "Préparation" (get ready)
+countdown, then red for the first work interval; rest is blue and between-round recovery
+is teal. The bottom controls are previous phase, play/pause and skip; the X at the top
+right closes the timer. Beeps mark the last three seconds of each segment and the
+halfway point of work.
+
+Tap "+" to create a workout, set the durations and counts, then tap "Enregistrer"
+(Save). Inside the editor, "Choisir les exercices" (Choose exercises) opens a menu to
+name each exercise, either from the built-in list or by typing.
+
+To edit an existing workout: swipe a row from left to right, or swipe from right to left
+and tap the orange "Modifier" (Edit), or long-press the row. Note that a full right-to-
+left swipe deletes the workout. The "Historique" (History) tab shows completed workouts,
+an activity chart and totals.
+
+LANGUAGE: the interface is French-only. Glossary — Séances = Workouts, Historique =
+History, Nouvelle séance = New workout, Modifier = Edit, Supprimer = Delete, Nom de la
+séance = Workout name, Durée totale = Total duration, Préparation = Get ready, Travail =
+Work, Repos = Rest, Exercices = Exercises (sets), Rounds = Rounds, Réinit. du round =
+Round recovery, Choisir les exercices = Choose exercises, Récents = Recently used,
+Effacer le nom = Clear name, Exercice 1 = Exercise 1, Aucune / Aucun = None, Enregistrer
+= Save, Annuler = Cancel, Effort = Work phase, Récupération = Recovery phase, Ensuite =
+Up next, Fin de séance = End of workout, Séance terminée ! = Workout complete!, Aucune
+séance enregistrée = No workouts recorded yet.
+
+Tested on iPhone 16 Pro (iOS 26.6). iPhone-only, portrait-only, minimum iOS 26.4.
