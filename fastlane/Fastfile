@@ -7,6 +7,9 @@
 #   fastlane beta          bump + build + upload TestFlight
 #   fastlane verify        DRY-RUN : valide textes + captures, ne pousse rien
 #   fastlane status        état de l'app sur ASC (version live / version en préparation)
+#   fastlane screenshots_status  compte les captures en ligne, signale les doublons
+#   fastlane withdraw      retire la version en préparation de la file de revue
+#   fastlane dedupe_screenshots  supprime les captures en double sur ASC
 #   fastlane fix_listing   corrige les textes de la version DÉJÀ PUBLIÉE (champ étroit)
 #   fastlane release       push métadonnées + captures + soumission pour revue
 #
@@ -51,6 +54,21 @@ def asc_key
     issuer_id:    ENV.fetch("ASC_ISSUER_ID"),
     key_filepath: File.expand_path(ENV.fetch("ASC_KEY_PATH"))
   )
+end
+
+# Les lanes qui interrogent l'API directement (hors actions) ont besoin du jeton posé
+# dans Spaceship, d'où `set_spaceship_token`. Renvoie l'app et la plateforme, les deux
+# arguments que réclame ensuite chaque appel.
+def asc_session
+  app_store_connect_api_key(
+    key_id:       ENV.fetch("ASC_KEY_ID"),
+    issuer_id:    ENV.fetch("ASC_ISSUER_ID"),
+    key_filepath: File.expand_path(ENV.fetch("ASC_KEY_PATH")),
+    set_spaceship_token: true
+  )
+
+  identifiant = CredentialsManager::AppfileConfig.try_fetch_value(:app_identifier)
+  [Spaceship::ConnectAPI::App.find(identifiant), Spaceship::ConnectAPI::Platform::IOS]
 end
 
 # Certaines opérations de deliver (download_metadata, generate_summary) n'existent
@@ -173,17 +191,7 @@ platform :ios do
 
   desc "État de l'app sur App Store Connect (version live, version en préparation)"
   lane :status do
-    # set_spaceship_token permet d'interroger l'API directement, hors des actions.
-    app_store_connect_api_key(
-      key_id:       ENV.fetch("ASC_KEY_ID"),
-      issuer_id:    ENV.fetch("ASC_ISSUER_ID"),
-      key_filepath: File.expand_path(ENV.fetch("ASC_KEY_PATH")),
-      set_spaceship_token: true
-    )
-
-    identifiant = CredentialsManager::AppfileConfig.try_fetch_value(:app_identifier)
-    app = Spaceship::ConnectAPI::App.find(identifiant)
-    plateforme = Spaceship::ConnectAPI::Platform::IOS
+    app, plateforme = asc_session
 
     live = app.get_live_app_store_version(platform: plateforme)
     edit = app.get_edit_app_store_version(platform: plateforme)
@@ -193,6 +201,93 @@ platform :ios do
     UI.message("version édit.  : #{edit ? "#{edit.version_string} — #{edit.app_store_state}" : "AUCUNE"}")
     UI.message("app info édit. : #{app.fetch_edit_app_info ? "présente" : "AUCUNE"}")
     UI.message("app info live  : #{app.fetch_live_app_info ? "présente" : "aucune"}")
+  end
+
+  desc "Compte les captures présentes sur ASC, par version et par set"
+  lane :screenshots_status do
+    app, plateforme = asc_session
+
+    [["live", app.get_live_app_store_version(platform: plateforme)],
+     ["édit.", app.get_edit_app_store_version(platform: plateforme)]].each do |etiquette, version|
+      next UI.message("version #{etiquette} : aucune") if version.nil?
+
+      UI.message("version #{etiquette} (#{version.version_string}) :")
+      version.get_app_store_version_localizations.each do |localisation|
+        localisation.get_app_screenshot_sets.each do |jeu|
+          captures = jeu.app_screenshots || []
+          # Deux captures identiques partagent leur `source_file_checksum` : c'est le
+          # seul moyen de distinguer un doublon d'un écran qui se ressemble.
+          uniques = captures.map(&:source_file_checksum).compact.uniq.count
+          soupcon = captures.count > uniques ? "  ⚠️ #{captures.count - uniques} doublon(s)" : ""
+          UI.message("  #{localisation.locale} / #{jeu.screenshot_display_type} : " \
+                     "#{captures.count} capture(s), #{uniques} distincte(s)#{soupcon}")
+        end
+      end
+    end
+  end
+
+  desc "Retire la version en préparation de la file de revue Apple"
+  lane :withdraw do
+    app, plateforme = asc_session
+
+    submission = app.get_in_progress_review_submission(platform: plateforme)
+    next UI.important("Aucune soumission en cours — rien à retirer.") if submission.nil?
+
+    submission.cancel_submission
+    UI.message("Annulation demandée. Apple ne sort pas la version de la file dans la " \
+               "seconde : on attend que la soumission disparaisse vraiment.")
+
+    # Sans cette attente, la lane rendrait la main sur un état encore verrouillé et
+    # l'édition des captures échouerait sans raison apparente.
+    loop do
+      break if app.get_in_progress_review_submission(platform: plateforme).nil?
+      UI.message("En attente de la prise d\'effet...")
+      sleep(15)
+    end
+    UI.success("Version retirée de la revue. Elle est de nouveau éditable.")
+  end
+
+  desc "Supprime les captures en double sur la version en préparation"
+  lane :dedupe_screenshots do
+    # Pourquoi cette lane existe : `upload_to_app_store` peut laisser des doublons.
+    # Après avoir envoyé les captures, deliver vérifie qu'elles sont bien arrivées en
+    # appariant les fichiers locaux aux captures d'ASC par leur `source_file_checksum`
+    # — que l'API ne renseigne qu'après coup, de façon asynchrone. Interrogée trop tôt,
+    # elle répond « aucune », deliver conclut à un échec et rejoue l'envoi ; or son
+    # nettoyage de reprise n'efface que les captures pas encore `complete?`, donc les
+    # premières survivent et le second envoi s'ajoute. Résultat : chaque écran en
+    # double, plafonné à 10 par set. Voir CLAUDE.md.
+    #
+    # On supprime ici plutôt que de renvoyer : aucun upload, donc pas de course.
+    app, plateforme = asc_session
+    version = app.get_edit_app_store_version(platform: plateforme)
+    UI.user_error!("Aucune version en préparation — rien à dédupliquer.") if version.nil?
+
+    supprimees = 0
+    version.get_app_store_version_localizations.each do |localisation|
+      localisation.get_app_screenshot_sets.each do |jeu|
+        vues = {}
+        # L'ordre de `app_screenshots` est l'ordre d'affichage sur la fiche : on garde
+        # la première occurrence de chaque image, donc l'ordre marketing est préservé.
+        (jeu.app_screenshots || []).each do |capture|
+          empreinte = capture.source_file_checksum || capture.file_name
+          if vues[empreinte]
+            capture.delete!
+            supprimees += 1
+            UI.message("  supprimé : #{capture.file_name} (#{localisation.locale})")
+          else
+            vues[empreinte] = true
+          end
+        end
+      end
+    end
+
+    if supprimees.zero?
+      UI.success("Aucun doublon.")
+    else
+      UI.success("#{supprimees} capture(s) en double supprimée(s). " \
+                 "Relance `screenshots_status` pour confirmer.")
+    end
   end
 
   desc "Corrige les textes de la version DÉJÀ PUBLIÉE, sans nouvelle version"
@@ -218,8 +313,14 @@ platform :ios do
     )
   end
 
-  desc "Push métadonnées + captures + soumission pour revue"
-  lane :release do
+  desc "Push métadonnées + captures + soumission pour revue " \
+       "(`skip_screenshots:true` pour ne pas retoucher aux captures)"
+  lane :release do |options|
+    # `skip_screenshots:true` sert à resoumettre après une correction de captures faite
+    # à la main : renvoyer les mêmes fichiers rejouerait la course décrite dans
+    # `dedupe_screenshots` et recréerait les doublons qu'on vient d'effacer.
+    sans_captures = options.fetch(:skip_screenshots, false)
+
     # Sans binaire (`skip_binary_upload`), deliver ne déduit aucune version : son
     # `detect_values` ne lit `app_version` que dans l'ipa/pkg. Nil, il saute
     # `verify_version` (runner.rb:58) et `upload_metadata` part chercher une version
@@ -233,7 +334,8 @@ platform :ios do
       api_key:               asc_key,
       app_version:           version,
       skip_binary_upload:    true,
-      overwrite_screenshots: true,
+      skip_screenshots:      sans_captures,
+      overwrite_screenshots: !sans_captures,
       submit_for_review:     true,
       # Même contrainte que dans `verify` : precheck tourne automatiquement avant
       # soumission et ne sait pas inspecter les achats intégrés avec une clé API.
