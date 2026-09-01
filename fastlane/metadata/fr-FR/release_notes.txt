@@ -1,3 +1,3 @@
-Cette version ne modifie pas l'app : le chrono, les sons et l'historique sont ceux de la 1.4.
+Le décompte des trois dernières secondes ne se décale plus quand une autre app audio joue en même temps, ni quand le téléphone est occupé : les bips et le signal de changement de phase tombent exactement à l'heure.
 
-Elle accompagne la mise à jour de la fiche App Store — nom, sous-titre, description et mots-clés — pour décrire enfin ce que fait réellement HIIT 974 : un timer d'intervalles lisible le téléphone posé par terre, entièrement hors ligne.
+Un appel entrant ou un changement de casque (AirPods, Bluetooth) ne coupe plus le son de la séance en cours.

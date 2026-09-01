@@ -109,7 +109,9 @@ struct RunView: View {
                     VStack(spacing: 24) {
                         exerciseBadge(step)
 
-                        ringTimer(diameter: ringDiameter)
+                        RingTimer(engine: engine,
+                                  diameter: ringDiameter,
+                                  strokeRatio: ringStrokeRatio)
 
                         countersRow
                     }
@@ -150,52 +152,6 @@ struct RunView: View {
 
     /// Épaisseur du tracé de l'anneau, en fraction de son diamètre.
     private let ringStrokeRatio: CGFloat = 0.06
-
-    private func ringTimer(diameter: CGFloat) -> some View {
-        let stroke = diameter * ringStrokeRatio
-        // Le chrono est inscrit dans le cercle : il tient dans une corde, pas dans le
-        // diamètre. 0,74 laisse le texte respirer sans mordre sur le tracé.
-        let textWidth = diameter * 0.74
-
-        return ZStack {
-            Circle()
-                .stroke(Color.white.opacity(0.22), lineWidth: stroke)
-            Circle()
-                .trim(from: 0, to: ringProgress)
-                .stroke(Color.white, style: StrokeStyle(lineWidth: stroke, lineCap: .round))
-                .rotationEffect(.degrees(-90))
-                .animation(.linear(duration: 0.08), value: ringProgress)
-
-            VStack(spacing: 2) {
-                Text(timeString(engine.timeRemaining))
-                    .font(.system(size: diameter * 0.32, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
-                    .monospacedDigit()
-                    // Un segment de 10 min affiche cinq caractères au lieu de quatre :
-                    // on rétrécit ce cas-là plutôt que de rapetisser tout le reste.
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.6)
-                    .frame(width: textWidth)
-                    .contentTransition(.numericText(countsDown: true))
-                    .animation(.default, value: Int(engine.timeRemaining))
-
-                if let step = engine.currentStep {
-                    Text(step.phase.label)
-                        .font(.system(size: diameter * 0.076, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.85))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
-                        .frame(width: textWidth)
-                }
-            }
-        }
-        .frame(width: diameter, height: diameter)
-    }
-
-    private var ringProgress: Double {
-        guard let step = engine.currentStep, step.durationSeconds > 0 else { return 0 }
-        return max(0, min(1, engine.timeRemaining / Double(step.durationSeconds)))
-    }
 
     // MARK: - Counters (round + set)
 
@@ -302,13 +258,86 @@ struct RunView: View {
         }
     }
 
-    private func timeString(_ t: TimeInterval) -> String {
-        let total = max(0, Int(ceil(t)))
-        return String(format: "%d:%02d", total / 60, total % 60)
-    }
-
     private func segDurationLabel(_ s: Int) -> String {
         s < 60 ? "\(s) s" : (s % 60 == 0 ? "\(s / 60) min" : "\(s / 60)'\(s % 60)\"")
+    }
+}
+
+// MARK: - Ring
+
+/// L'anneau et le chrono, isolés dans leur propre `View`.
+///
+/// Ce n'est pas de la décomposition esthétique : `engine.timeRemaining` change **20 fois
+/// par seconde** pour animer le tracé. Tant que `RunView.timerView` le lisait, tout son
+/// corps — le `GeometryReader`, le badge, les compteurs, la ligne « Ensuite », les
+/// contrôles en `glassEffect` — était réévalué à la même cadence. Sur un A13, ce budget
+/// main thread manquait ensuite au `Timer` du moteur. Isolé ici, seul ce sous-arbre suit
+/// la cadence de l'anneau.
+private struct RingTimer: View {
+    let engine: TimerEngine
+    let diameter: CGFloat
+    let strokeRatio: CGFloat
+
+    var body: some View {
+        let stroke = diameter * strokeRatio
+        // Le chrono est inscrit dans le cercle : il tient dans une corde, pas dans le
+        // diamètre. 0,74 laisse le texte respirer sans mordre sur le tracé.
+        let textWidth = diameter * 0.74
+
+        return ZStack {
+            Circle()
+                .stroke(Color.white.opacity(0.22), lineWidth: stroke)
+            Circle()
+                .trim(from: 0, to: progress)
+                .stroke(Color.white, style: StrokeStyle(lineWidth: stroke, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+
+            VStack(spacing: 2) {
+                ChronoText(engine: engine, diameter: diameter, width: textWidth)
+
+                if let step = engine.currentStep {
+                    Text(step.phase.label)
+                        .font(.system(size: diameter * 0.076, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.85))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                        .frame(width: textWidth)
+                }
+            }
+        }
+        .frame(width: diameter, height: diameter)
+    }
+
+    /// Pas d'`.animation(_:value:)` sur le tracé : à 20 Hz la progression est déjà
+    /// continue à l'œil, et l'animation implicite ouvrait une transaction neuve à chaque
+    /// tick — du travail de layout pur, vingt fois par seconde, pour rien.
+    private var progress: Double {
+        guard let step = engine.currentStep, step.durationSeconds > 0 else { return 0 }
+        return max(0, min(1, engine.timeRemaining / Double(step.durationSeconds)))
+    }
+}
+
+/// Le chrono, à part parce qu'il lit `displayedSeconds` et non `timeRemaining` : à
+/// ~113 pt et en `monospacedDigit`, sa remise en page est ce qu'il y a de plus cher à
+/// l'écran. Il n'est donc invalidé qu'une fois par seconde, pas vingt.
+private struct ChronoText: View {
+    let engine: TimerEngine
+    let diameter: CGFloat
+    let width: CGFloat
+
+    var body: some View {
+        let seconds = engine.displayedSeconds
+        return Text(String(format: "%d:%02d", seconds / 60, seconds % 60))
+            .font(.system(size: diameter * 0.32, weight: .bold, design: .rounded))
+            .foregroundStyle(.white)
+            .monospacedDigit()
+            // Un segment de 10 min affiche cinq caractères au lieu de quatre :
+            // on rétrécit ce cas-là plutôt que de rapetisser tout le reste.
+            .lineLimit(1)
+            .minimumScaleFactor(0.6)
+            .frame(width: width)
+            .contentTransition(.numericText(countsDown: true))
+            .animation(.default, value: seconds)
     }
 }
 
