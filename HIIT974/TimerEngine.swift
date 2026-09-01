@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 import Observation
+import os
 
 @MainActor
 @Observable
@@ -60,6 +61,12 @@ final class TimerEngine {
     private(set) var state: TimerState = .idle
     private(set) var currentStepIndex: Int = 0
     private(set) var timeRemaining: TimeInterval
+    /// Secondes affichées par le chrono, arrondies vers le haut.
+    ///
+    /// Existe pour que le `Text` du chrono — énorme depuis la v1.4, donc coûteux à
+    /// remettre en page — ne soit invalidé qu'une fois par seconde, alors que
+    /// ``timeRemaining`` change 20 fois par seconde pour l'anneau.
+    private(set) var displayedSeconds: Int
     private(set) var startedAt: Date?
     private(set) var beepCount: Int = 0
 
@@ -68,11 +75,20 @@ final class TimerEngine {
     let totalSets: Int
     let audioCue = AudioCueManager()
 
+    private nonisolated let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "TempoHIIT", category: "Timer")
+
     private var referenceDate: Date?
     private var referenceRemaining: TimeInterval
-    nonisolated(unsafe) private var timer: Timer?
-    private var lastBeepSecond = -1
+    private var timer: Timer?
     private var halfwayFired = false
+
+    // MARK: - Queue de segment
+
+    /// La queue de segment (décompte 3-2-1 **et** bip de transition) a-t-elle été lancée ?
+    /// C'est un seul son de quatre secondes, donc un seul drapeau.
+    private var tailStarted = false
+    /// Dernière seconde du décompte franchie, pour le retour haptique.
+    private var lastBeepSecond = -1
 
     init(workout: Workout) {
         var built: [Step] = []
@@ -105,9 +121,18 @@ final class TimerEngine {
         let initial = TimeInterval(built.first?.durationSeconds ?? 0)
         timeRemaining      = initial
         referenceRemaining = initial
+        displayedSeconds   = max(0, Int(ceil(initial)))
+
+        // Une interruption ou un changement de route coupe la queue en cours : il faut
+        // la relancer, au bon endroit du buffer.
+        audioCue.onSessionReset = { [weak self] in self?.markTailInterrupted() }
     }
 
-    deinit { timer?.invalidate() }
+    /// `isolated` : le `Timer` est ordonnancé sur la `RunLoop` du main thread, donc
+    /// `invalidate()` doit y être appelé. Le `nonisolated(unsafe)` que portait la
+    /// propriété avant se contentait de faire taire l'isolation — et le compilateur
+    /// signalait qu'il n'avait « aucun effet ».
+    isolated deinit { timer?.invalidate() }
 
     // MARK: - Computed
 
@@ -121,9 +146,9 @@ final class TimerEngine {
     func start() {
         guard state == .idle, !steps.isEmpty else { return }
         currentStepIndex     = 0
-        resetSegmentCues()
+        interruptCues()
         referenceRemaining   = TimeInterval(steps[0].durationSeconds)
-        timeRemaining        = referenceRemaining
+        setTimeRemaining(referenceRemaining)
         referenceDate        = Date()
         startedAt            = Date()
         state                = .running
@@ -136,6 +161,10 @@ final class TimerEngine {
         snapshotTimeRemaining()
         state = .paused
         cancelTimer()
+        // Une queue dure quatre secondes et ne connaît pas la pause : sans coupure
+        // explicite, elle continuerait toute seule, séance arrêtée.
+        interruptCues()
+        audioCue.endDuckingAfter(0.3)
     }
 
     func resume() {
@@ -149,12 +178,14 @@ final class TimerEngine {
         cancelTimer()
         state                = .idle
         currentStepIndex     = 0
-        resetSegmentCues()
+        interruptCues()
+        halfwayFired         = false
         beepCount            = 0
         referenceDate        = nil
         startedAt            = nil
         referenceRemaining   = TimeInterval(steps.first?.durationSeconds ?? 0)
-        timeRemaining        = referenceRemaining
+        setTimeRemaining(referenceRemaining)
+        audioCue.endDuckingAfter(0.3)
     }
 
     func skip() {
@@ -175,9 +206,10 @@ final class TimerEngine {
         if elapsed < 3.0, currentStepIndex > 0 {
             currentStepIndex -= 1
         }
+        interruptCues()
         resetSegmentCues()
         referenceRemaining   = TimeInterval(steps[currentStepIndex].durationSeconds)
-        timeRemaining        = referenceRemaining
+        setTimeRemaining(referenceRemaining)
         referenceDate        = Date()
         cueSegmentStart()
 
@@ -191,12 +223,20 @@ final class TimerEngine {
 
     private func tick() {
         guard state == .running, let ref = referenceDate else { return }
+        stressMainThreadIfRequested()
+
         var elapsed = Date().timeIntervalSince(ref)
         var segmentChanged = false
+        // Le bip de transition de la frontière franchie fait-il partie d'une queue déjà
+        // lancée ? Si oui il est en train de sortir : le rejouer le doublerait.
+        var transitionAlreadyPlaying = false
 
         // Fast-forward through any segments that fully elapsed (e.g. after app was backgrounded)
         while elapsed >= referenceRemaining {
             elapsed -= referenceRemaining
+            // La queue contient déjà le bip de transition, qui est en train de sortir :
+            // le rejouer le doublerait.
+            transitionAlreadyPlaying = tailStarted
             let next = currentStepIndex + 1
             resetSegmentCues()
             if next < steps.count {
@@ -205,60 +245,33 @@ final class TimerEngine {
                 segmentChanged     = true
             } else {
                 state         = .finished
-                timeRemaining = 0
+                setTimeRemaining(0)
                 referenceDate = nil
                 cancelTimer()
-                cueFinished()
+                if !transitionAlreadyPlaying { cueFinished() }
                 return
             }
         }
 
-        timeRemaining = referenceRemaining - elapsed
+        setTimeRemaining(referenceRemaining - elapsed)
 
         if segmentChanged {
             referenceDate = Date() - elapsed
-            cueSegmentStart()
+            if !transitionAlreadyPlaying { cueSegmentStart() }
         }
 
-        if !halfwayFired, let half = halfwayRemaining, timeRemaining <= half {
-            halfwayFired = true
-            // Un retour d'arrière-plan peut nous déposer bien après la moitié — dans le
-            // segment courant comme dans un suivant. On désarme alors sans jouer : un
-            // repère de mi-parcours en retard est pire que pas de repère du tout.
-            if timeRemaining > half - 1 {
-                beepCount += 1
-                audioCue.beginDucking()
-                audioCue.play(.halfway)
-                audioCue.endDuckingAfter(0.8)
-            }
-        }
+        cueHalfwayIfNeeded()
+        startSegmentTailIfNeeded()
+        pulseHapticOnCountdown()
+    }
 
-        let secondsLeft = Int(ceil(timeRemaining))
-        if secondsLeft <= 3 && secondsLeft > 0 && secondsLeft != lastBeepSecond {
-            lastBeepSecond = secondsLeft
-            beepCount += 1
-            audioCue.beginDucking()
-            audioCue.play(.countdown)
-            audioCue.endDuckingAfter(Self.countdownDuckRelease)
-        }
+    private func setTimeRemaining(_ value: TimeInterval) {
+        timeRemaining = value
+        let shown = max(0, Int(ceil(value)))
+        if shown != displayedSeconds { displayedSeconds = shown }
     }
 
     // MARK: - Cues
-
-    /// Délai de relâche du ducking après un bip du décompte.
-    ///
-    /// **Doit rester strictement supérieur à la seconde qui sépare deux bips.** À 1,0 s
-    /// pile, le relâchement du bip N tombait exactement sur le bip N+1 (et 1 s vaut 20
-    /// ticks ronds) : `releaseDucking()` reconfigurait la session juste avant que
-    /// `beginDucking()` la reconfigure en sens inverse. Deux IPC vers `mediaserverd` dos à
-    /// dos, à chaque seconde du décompte — pompage audible sur la musique, et bip joué
-    /// avant que l'atténuation ne soit en place.
-    ///
-    /// Avec cette marge, le `beginDucking()` du bip suivant annule le relâchement en
-    /// attente : l'atténuation tient d'une traite de T-3 jusqu'au bip de transition. Le
-    /// relâchement ne s'exécute que si la chaîne s'interrompt — une pause en plein
-    /// décompte, typiquement, où rendre la musique est le bon comportement.
-    private static let countdownDuckRelease: TimeInterval = 1.5
 
     /// Secondes restantes auxquelles jouer le signal de mi-parcours. `nil` hors phase
     /// d'effort, ou quand la moitié tomberait dans le décompte des 3 dernières secondes.
@@ -273,12 +286,101 @@ final class TimerEngine {
         return half > 3 ? half : nil
     }
 
-    private func resetSegmentCues() {
-        lastBeepSecond = -1
-        halfwayFired   = false
+    private func cueHalfwayIfNeeded() {
+        guard !halfwayFired, let half = halfwayRemaining, timeRemaining <= half else { return }
+        halfwayFired = true
+        // Un retour d'arrière-plan peut nous déposer bien après la moitié — dans le
+        // segment courant comme dans un suivant. On désarme alors sans jouer : un
+        // repère de mi-parcours en retard est pire que pas de repère du tout.
+        guard timeRemaining > half - 1 else { return }
+        beepCount += 1
+        audioCue.beginDucking()
+        audioCue.play(.halfway)
+        audioCue.endDuckingAfter(0.8)
     }
 
-    /// Bip long de transition. Le ducking est relâché après la fin du bip (600 ms).
+    /// Lance la queue du segment : le décompte 3-2-1 et le bip de transition, en un seul
+    /// son de quatre secondes.
+    ///
+    /// C'est ici que le timing quitte le main thread. Le tick ne décide plus *quand* sonne
+    /// chaque bip — il ne fait que lancer le buffer, et leur espacement est déjà gravé
+    /// dedans. Sa seule responsabilité est le point d'entrée : s'il arrive en retard, on
+    /// entre d'autant plus loin dans le buffer, ce qui replace les bips au bon endroit au
+    /// lieu de décaler tout le rythme. La position `p` du buffer vaut toujours
+    /// `timeRemaining == tailLead - p`.
+    private func startSegmentTailIfNeeded() {
+        #if DEBUG
+        // Harnais de mesure uniquement, cf. `usesTickCountdown`.
+        if Self.usesTickCountdown { return }
+        #endif
+        guard state == .running, !tailStarted,
+              timeRemaining <= AudioCueManager.tailLead, timeRemaining > 0 else { return }
+        tailStarted = true
+
+        // Armé avant la lecture : sur `sessionQueue` la reconfiguration passe donc en
+        // premier, et le silence de tête du buffer lui laisse le temps d'atterrir.
+        audioCue.beginDucking()
+        audioCue.play(tailCue, from: AudioCueManager.tailLead - timeRemaining)
+        // Couvre tout ce qui reste du buffer, bip de transition compris.
+        audioCue.endDuckingAfter(timeRemaining + 1.0)
+    }
+
+    /// La queue annonce la phase suivante : c'est elle qui choisit la variante.
+    private var tailCue: AudioCueManager.Cue {
+        switch nextStep?.phase {
+        case .prepare:      .tailToPrepare
+        case .work:         .tailToWork
+        case .rest, .reset: .tailToRest
+        case nil:           .tailToFinish
+        }
+    }
+
+    /// Le retour haptique suit le décompte, mais reste piloté par le tick : une vibration
+    /// décalée de quelques dizaines de ms ne se remarque pas. C'est bien le son, et lui
+    /// seul, qu'il fallait affranchir du main thread.
+    private func pulseHapticOnCountdown() {
+        // `displayedSeconds` est ce que le chrono affiche, mis à jour juste avant dans le
+        // même tick : le retour haptique suit donc exactement ce que l'utilisateur voit,
+        // et l'arrondi n'est défini qu'à un seul endroit.
+        let secondsLeft = displayedSeconds
+        guard secondsLeft <= 3, secondsLeft > 0, secondsLeft != lastBeepSecond else { return }
+        lastBeepSecond = secondsLeft
+        beepCount += 1
+        #if DEBUG
+        if Self.usesTickCountdown {
+            audioCue.beginDucking()
+            audioCue.play(.countdown)
+            audioCue.endDuckingAfter(1.5)
+        }
+        #endif
+    }
+
+    /// Remet à zéro les drapeaux de cue d'un segment, **sans** toucher aux cues déjà
+    /// joués : sur une frontière de segment normale, le bip de transition est justement
+    /// en train de sortir et le couper le tronquerait.
+    private func resetSegmentCues() {
+        tailStarted    = false
+        halfwayFired   = false
+        lastBeepSecond = -1
+    }
+
+    /// Coupe le son en cours, queue comprise. Pour les ruptures du déroulé —
+    /// pause, stop, skip, previous — où un cue en vol n'a plus lieu d'être.
+    private func interruptCues() {
+        audioCue.stopAll()
+        resetSegmentCues()
+    }
+
+    /// Une interruption système ou un changement de route a coupé la queue en cours : on
+    /// redevient « non lancé » et le prochain tick la relance, en entrant dans le buffer à
+    /// la position qui correspond au temps restant. `halfwayFired` et `lastBeepSecond`
+    /// restent attachés au segment courant et ne sont surtout pas réarmés.
+    private func markTailInterrupted() {
+        tailStarted = false
+    }
+
+    /// Bip long de transition, joué immédiatement. N'est utilisé que quand la frontière
+    /// n'est pas couverte par une queue : démarrage, skip, previous.
     private func cueSegmentStart() {
         guard let phase = currentStep?.phase else { return }
         audioCue.beginDucking()
@@ -294,16 +396,16 @@ final class TimerEngine {
 
     private func advance() {
         let next = currentStepIndex + 1
-        resetSegmentCues()
+        interruptCues()
         if next < steps.count {
             currentStepIndex   = next
             referenceRemaining = TimeInterval(steps[next].durationSeconds)
-            timeRemaining      = referenceRemaining
+            setTimeRemaining(referenceRemaining)
             referenceDate      = Date()
             cueSegmentStart()
         } else {
             state         = .finished
-            timeRemaining = 0
+            setTimeRemaining(0)
             cancelTimer()
             cueFinished()
         }
@@ -312,7 +414,7 @@ final class TimerEngine {
     private func snapshotTimeRemaining() {
         guard let ref = referenceDate else { return }
         referenceRemaining = max(0, referenceRemaining - Date().timeIntervalSince(ref))
-        timeRemaining      = referenceRemaining
+        setTimeRemaining(referenceRemaining)
         referenceDate      = nil
     }
 
@@ -325,6 +427,43 @@ final class TimerEngine {
     }
 
     private func cancelTimer() { timer?.invalidate(); timer = nil }
+
+    // MARK: - Reproduction du bug
+
+    #if DEBUG
+    /// Bloque volontairement le main thread, sur l'argument de lancement `-audioStress`.
+    ///
+    /// Le bug des « secondes collées » ne se reproduit que sur un device lent avec une app
+    /// audio tierce active — impossible à tenir sous la main. Ceci le rend déterministe
+    /// n'importe où : avec le décompte piloté par le tick (`-audioTickCountdown`), les bips
+    /// se collent ; avec la queue pré-rendue, ils restent à une seconde
+    /// d'écart.
+    ///
+    /// La période est volontairement **désaccordée** de la seconde du décompte : à 1,0 s
+    /// pile le blocage se cale sur les bips et les décale tous pareil, ce qui ne montre
+    /// rien. À 1,3 s il précesse et finit par tomber dans toutes les phases possibles.
+    private static let stressesMainThread = ProcessInfo.processInfo.arguments.contains("-audioStress")
+
+    /// `-audioTickCountdown` rejoue l'ancien comportement : un bip par tick qui franchit
+    /// la seconde, au lieu de la queue pré-rendue. C'est **uniquement un harnais de
+    /// mesure** — aucune condition de production ne mène là, contrairement à la v1.5
+    /// intermédiaire qui en faisait un repli. Il sert à rejouer le bug et le fix dans le
+    /// même build, avec la même sonde.
+    private static let usesTickCountdown = ProcessInfo.processInfo.arguments.contains("-audioTickCountdown")
+    private static let stressPeriod: TimeInterval = 1.3
+    private static let stressDuration: TimeInterval = 0.6
+    private var lastStressAt: Date?
+
+    private func stressMainThreadIfRequested() {
+        guard Self.stressesMainThread else { return }
+        let now = Date()
+        if let last = lastStressAt, now.timeIntervalSince(last) < Self.stressPeriod { return }
+        lastStressAt = now
+        Thread.sleep(forTimeInterval: Self.stressDuration)
+    }
+    #else
+    private func stressMainThreadIfRequested() {}
+    #endif
 }
 
 private extension Array {

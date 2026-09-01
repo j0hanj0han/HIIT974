@@ -27,6 +27,8 @@ Réimplémentation *from scratch* inspirée fonctionnellement de "Interval Timer
   (`idle/running/paused/finished`). **Le temps se calcule par différence de `Date`, jamais
   par accumulation de ticks** (immunise contre la dérive en arrière-plan ; la boucle de
   fast-forward de `tick()` rattrape les segments écoulés au retour en avant-plan).
+  Le tick **n'est plus l'horloge des cues** (v1.5) : il ne fait que lancer, à T-4, la queue
+  du segment — un buffer pré-rendu où le rythme est déjà gravé.
 - `AudioCueManager` (`@MainActor`) — session audio, vocabulaire sonore et ducking.
 - `ExerciseCatalog` — suggestions de noms d'exercices. Constante (catalogue intégré) +
   noms personnels **recalculés à la volée** depuis les séances : aucune entité SwiftData.
@@ -76,10 +78,82 @@ en place. Avec la marge, le `beginDucking()` suivant annule le relâchement en a
 l'atténuation tient d'une traite de T-3 jusqu'au bip de transition.
 
 `setCategory` / `setActive` sont des IPC **synchrones** vers `mediaserverd` : avec une app
-audio tierce active (Spotify), un appel peut bloquer plusieurs centaines de ms. Toutes les
-mutations de session passent donc par `AudioCueManager.sessionQueue`, une file série dédiée
-— **ne jamais les ramener sur le main thread** : elles y gèleraient le `RunLoop`, donc le
-`Timer` 20 Hz de `TimerEngine`, ce qui décale ou fait sauter des bips du décompte.
+audio tierce active (Spotify), un appel peut bloquer plusieurs centaines de ms.
+`AVAudioPlayer.play()` emprunte le même chemin et coûte tout aussi cher. Toutes ces
+commandes passent donc par `AudioCueManager.sessionQueue`, une file série dédiée —
+**ne jamais les ramener sur le main thread**, elles y gèleraient le `RunLoop`.
+
+**Invariant central (v1.5) : le timing des cues ne dépend pas du main thread.** Sortir les
+IPC du main thread (v1.3) ne suffisait pas — il restait tout le reste (le rendu de `RunView`
+à 20 Hz, alourdi par l'anneau pleine largeur de la v1.4) pour retarder un tick, et donc un
+bip.
+
+La solution n'est pas de mieux piloter quatre sons, c'est de n'en avoir qu'un. Le décompte
+3-2-1 **et** le bip de transition sont un **seul buffer pré-rendu** de quatre secondes — les
+`Cue` de queue (`tailToWork`, `tailToRest`, `tailToPrepare`, `tailToFinish`, une variante par
+phase annoncée). L'espacement des bips n'est pas quelque chose qu'on demande à une horloge :
+il est **gravé dans les échantillons**. Une fois `play()` lancé, le hardware les consomme à
+cadence fixe quoi qu'il arrive au CPU ; la dérive est physiquement impossible.
+
+`AudioCueManager.tailLead` (4 s) est le contrat entre les deux fichiers : la position `p`
+dans le buffer vaut exactement `timeRemaining == tailLead - p`. D'où le rattrapage, qui tient
+en un paramètre : si le tick arrive en retard, `TimerEngine` entre d'autant plus loin dans le
+buffer (`play(_:from:)`) au lieu de décaler tout le rythme. Un retour d'arrière-plan qui
+dépose à T-2 saute naturellement le bip de T-3, sans cas particulier. Mesuré sous un blocage
+volontaire de 600 ms du main thread : les ancres de queues successives restent à ±7 ms de la
+durée de segment.
+
+Ce contrat est **vérifié à l'exécution** : `assertTailContract()` (DEBUG, appelé par
+`configure()`) contrôle que dans chaque queue le bip de transition démarre pile à `tailLead`.
+Retoucher la géométrie du décompte — `Cue.countdownBeeps`, `tailLead`, l'espacement — sans
+relire `startSegmentTailIfNeeded()` désalignerait sinon tout le son en silence. Ici, ça casse
+au lancement.
+
+Deux conséquences à ne pas oublier :
+
+- **Toute rupture du déroulé doit couper le son** (`stopAll()`, via
+  `TimerEngine.interruptCues()`) : pause, stop, skip, previous, interruption système. Une
+  queue dure quatre secondes et contient le bip de transition — elle continuerait sinon toute
+  seule, séance arrêtée.
+- **À l'inverse, une frontière de segment normale ne doit rien couper** : le bip de
+  transition est justement en train de sortir. `TimerEngine.tailStarted` sert à ne pas le
+  rejouer par-dessus via `cueSegmentStart()`.
+
+Le ducking est armé **avant** de lancer la queue : sur `sessionQueue` la reconfiguration
+passe donc en premier, et le silence de tête du buffer lui laisse le temps d'atterrir avant
+le premier bip. Une seule relâche couvre tout le buffer.
+
+Interruptions (appel, Siri) et changements de route (AirPods) désactivent la session et
+coupent la queue en cours, silencieusement. `AudioCueManager` les observe, reconstruit session
+et players — **sur `sessionQueue`**, car ça arrive en pleine séance et préparer les players
+sur le main thread y gèlerait le `Timer` — et prévient le moteur via `onSessionReset`, qui
+relance la queue au bon endroit du buffer.
+
+**Ce qui a été essayé avant, et pourquoi c'est parti** : une première v1.5 planifiait les
+quatre sons séparément sur l'horloge du périphérique (`AVAudioPlayer.play(atTime:)`). Ça
+marchait — mesuré à 1000,0000 ms d'écart — mais au prix d'un pool de players (un
+`AVAudioPlayer` ne porte qu'un `play(atTime:)` en attente), d'une sonde à deux échantillons
+pour vérifier que `deviceCurrentTime` avance vraiment, et d'un repli piloté par le tick quand
+elle n'avançait pas — repli qui réintroduisait le bug d'origine. Le buffer pré-rendu supprime
+tout ça d'un coup : il ne dépend d'aucune horloge, donc ni sonde, ni repli, ni pool. Ne pas
+réintroduire de planification par instants.
+
+**Diagnostic** : toute mesure du timing audio doit être prise **sur `sessionQueue`**, jamais
+depuis le main actor. Une première sonde s'appuyait sur `audioPlayerDidFinishPlaying` : ce
+callback est délivré sur le main thread, donc elle mesurait le retard de livraison du callback
+et non l'espacement du son — confondue par la variable même qu'on caractérisait, et
+génératrice de fausses alertes en production. `play(_:from:)` journalise donc, depuis la file,
+l'**ancre** de chaque cue : `deviceCurrentTime - offset`, soit l'instant où la queue aurait
+démarré si le tick était tombé pile. Deux ancres consécutives séparées d'une durée de segment
+exacte = le rattrapage fonctionne. En `notice` DEBUG ; le coût des IPC de session est tracé
+au-delà de 50 ms, toujours actif.
+
+**Reproduire le bug** : `-audioStress` (DEBUG) bloque le main thread 600 ms toutes les 1,3 s —
+période volontairement désaccordée de la seconde du décompte, pour qu'elle précesse et tombe
+dans toutes les phases. `-audioTickCountdown` rejoue l'ancien comportement, un bip par tick :
+c'est **uniquement un harnais de mesure**, aucune condition de production n'y mène. Les deux
+ensemble rejouent le bug (5 écarts sur 8 hors tolérance, min 399 ms — des secondes
+littéralement collées) ; le premier seul montre le fix.
 
 ## Conventions
 - Une vue par fichier. Sous-vues privées dans le même fichier si petites.
@@ -91,7 +165,10 @@ mutations de session passent donc par `AudioCueManager.sessionQueue`, une file s
 - Serveur MCP **xcodebuild** (XcodeBuildMCP) configuré : build, install, lancement,
   logs, captures et automatisation d'UI sur simulateur passent par ses outils plutôt
   que par des appels `xcodebuild`/`simctl` à la main.
-- **iOS Deployment Target = 26.4** (Build Settings).
+- **iOS Deployment Target = 26.4** (Build Settings). Conséquence pour le simulateur :
+  plusieurs runtimes portent un « iPhone 17 », et viser le simulateur **par son nom**
+  résout sur le plus ancien (iOS 26.0), qu'`xcodebuild` rejette ensuite en
+  « Unable to find a destination matching ». Viser par **UDID** (`list_sims`).
 - **Ne pas activer Background Modes → Audio** (cf. note 2.5.4 ci-dessous).
 - L'app est en production : toute évolution de schéma SwiftData doit être testée en
   *upgrade* (installer la version précédente, créer des données, installer par-dessus sans
@@ -212,6 +289,13 @@ de la version marketing et la rédaction des notes, le test sur device, et la re
 - [x] v1.4.1 (build 7) — **aucun changement de code**. Version créée pour porter la fiche
       App Store corrigée (nom « HIIT 974 », sous-titre, mots-clés, description réécrite),
       qu'ASC refusait d'accepter sur la 1.4 déjà en vente. Soumise le 2026-08-28.
+- [ ] v1.5 (build 8) — décompte immunisé contre la charge du main thread : le 3-2-1 et le
+      bip de transition sont un seul buffer pré-rendu de 4 s, lancé à T-4, au lieu de quatre
+      sons joués par le tick 20 Hz. S'y ajoutent : ducking armé avant la queue, préparation
+      des players sortie du main thread, interruptions et changements de route de session
+      enfin gérés, et `RunView` allégé (chrono sur `displayedSeconds`, anneau isolé dans sa
+      propre `View`). Remonté par un utilisateur iPhone 11 / iOS 26.1.1 sur la 1.4.1, avec
+      Spotify actif.
 
 > **Note API** : `.textInputSuggestions` (autocomplétion sous un `TextField`) est
 > `@available(iOS, unavailable)` — macOS 15 uniquement. Le menu de suggestions est donc
