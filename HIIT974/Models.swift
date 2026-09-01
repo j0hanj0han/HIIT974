@@ -51,11 +51,6 @@ extension Workout {
         return name.isEmpty ? nil : name
     }
 
-    /// Nombre d'exercices effectivement nommés, dans la limite de `sets`.
-    var namedExerciseCount: Int {
-        (1...max(sets, 1)).count { exerciseName(at: $0) != nil }
-    }
-
     static var samples: [Workout] {
         [
             Workout(name: "Tabata",
