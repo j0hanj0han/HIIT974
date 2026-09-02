@@ -289,13 +289,15 @@ de la version marketing et la rédaction des notes, le test sur device, et la re
 - [x] v1.4.1 (build 7) — **aucun changement de code**. Version créée pour porter la fiche
       App Store corrigée (nom « HIIT 974 », sous-titre, mots-clés, description réécrite),
       qu'ASC refusait d'accepter sur la 1.4 déjà en vente. Soumise le 2026-08-28.
-- [ ] v1.5 (build 8) — décompte immunisé contre la charge du main thread : le 3-2-1 et le
+- [x] v1.5 (build 8) — décompte immunisé contre la charge du main thread : le 3-2-1 et le
       bip de transition sont un seul buffer pré-rendu de 4 s, lancé à T-4, au lieu de quatre
       sons joués par le tick 20 Hz. S'y ajoutent : ducking armé avant la queue, préparation
       des players sortie du main thread, interruptions et changements de route de session
       enfin gérés, et `RunView` allégé (chrono sur `displayedSeconds`, anneau isolé dans sa
       propre `View`). Remonté par un utilisateur iPhone 11 / iOS 26.1.1 sur la 1.4.1, avec
-      Spotify actif.
+      Spotify actif. Soumise le 2026-09-02, captures non renvoyées
+      (`release skip_screenshots:true`) : ASC recopie celles de la version
+      précédente, et ne rien envoyer supprime la course qui les avait dupliquées.
 
 > **Note API** : `.textInputSuggestions` (autocomplétion sous un `TextField`) est
 > `@available(iOS, unavailable)` — macOS 15 uniquement. Le menu de suggestions est donc
