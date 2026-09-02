@@ -197,6 +197,22 @@ Ordre d'une release : `screenshots` → `beta` → **test sur iPhone réel** →
 `release`. Le gate device n'est pas optionnel : le rejet 2.5.4 est passé au travers d'un
 audit statique au vert et d'un build Release qui compilait (cf. section ci-dessous).
 
+**Deux textes à réécrire avant chaque `release`**, et ils se comportent pareil : ASC
+recopie sur la nouvelle version ce que portait la précédente, donc les oublier ne laisse
+pas un champ vide — ça republie silencieusement le texte de la version d'avant.
+
+1. `fastlane/metadata/fr-FR/release_notes.txt` — les notes publiques, entièrement.
+2. Le seul paragraphe `WHAT'S NEW IN <version>` de
+   `fastlane/metadata/review_information/notes.txt` (champ « Remarques » d'ASC, dans
+   « Informations utiles à la vérification de l'app »). **Tout le reste de ce fichier est
+   stable** — absence de compte, de réseau et de permissions, section audio / 2.5.4, mode
+   d'emploi, glossaire français — et ne se retouche pas. C'est justement parce que ce
+   paragraphe est le seul texte daté d'un fichier qui ne bouge jamais que rien ne rappelle
+   d'y toucher : il était resté en « WHAT'S NEW IN 1.4 » lors de la soumission de la 1.5.
+   Sans gravité (rien de faux n'y était, et la section audio restait exacte), mais le
+   reviewer a lu la version précédente. `deliver` repousse ce fichier à **chaque**
+   release : ce qui est dans le repo part chez Apple, à jour ou non.
+
 - **Authentification** : clé API App Store Connect (`.p8`), jamais l'Apple ID. Les trois
   valeurs vivent dans `fastlane/.env`, git-ignoré — voir `fastlane/.env.example`. Ne
   jamais committer le `.p8` ni les IDs.

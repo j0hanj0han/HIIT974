@@ -18,16 +18,19 @@ integration is present. The app plays nothing in the background or on the lock s
 by design, following the 2.5.4 feedback on version 1.0. The workout screen keeps the
 display awake so the timer stays visible.
 
-WHAT'S NEW IN 1.4: the workout screen was rebuilt to be readable from a distance, with
-the phone lying on the floor. The progress ring now spans the full width of the screen
-and every text size on that screen derives from its diameter: the countdown grows from
-76 to 113 points, and the exercise name, phase label, round counters and the "Ensuite"
-(Up next) line grow accordingly. The end-of-workout screen follows the same scale. No
-new capability or data, no change to permissions or audio.
+WHAT'S NEW IN 1.5: the three-second countdown and the phase-change tone are now a
+single pre-rendered audio buffer, started four seconds before each transition, instead
+of four separate sounds triggered by the timer loop. This fixes beeps drifting out of
+time when a third-party music app is active or the device is busy, as reported by a user
+on 1.4.1. Audio session interruptions (incoming call) and route changes (AirPods,
+Bluetooth) are now handled and no longer silence the running workout. No new capability
+or data, no change to permissions, and still no background audio.
 
 SINCE THE 1.1 NOTES: 1.2 added optional exercise names, typed freely or picked from a
 built-in list of about 40 movements. 1.3 fixed the countdown beeps when a third-party
-music app is active.
+music app is active. 1.4 rebuilt the workout screen to be readable from a distance, with
+the progress ring spanning the full width and every text size deriving from its
+diameter.
 
 HOW TO TEST: no setup required. Two sample workouts are created on first launch,
 "Tabata" (20 s work / 10 s rest, 8 exercises, 1 round, each exercise named) and "HIIT
