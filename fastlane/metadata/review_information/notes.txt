@@ -18,27 +18,19 @@ integration is present. The app plays nothing in the background or on the lock s
 by design, following the 2.5.4 feedback on version 1.0. The workout screen keeps the
 display awake so the timer stays visible.
 
-WHAT'S NEW IN 1.6: the two workouts that used to be force-created on first launch
-("Tabata", "HIIT Full Body") are gone. Instead, a "Suggestions du chef" folder on the
-workouts screen offers five ready-made workouts (the original two plus three new ones)
-that the user adds to their own list with a single tap — nothing is created without an
-explicit action. Existing installs that already had the two old default workouts get
-them removed once, on first launch after the update, but only when every field still
-matches the original defaults exactly — a workout the user renamed or edited is never
-touched. No new capability or data, no change to permissions, and still no background
+WHAT'S NEW IN 1.6: the two workouts force-created on first launch ("Tabata", "HIIT Full
+Body") are gone. A "Suggestions du chef" folder now offers five ready-made workouts (the
+original two plus three new ones); the user adds one with a single tap, nothing is
+created automatically. Existing installs that had the two old defaults, untouched, get
+them removed once on first launch after the update — a renamed or edited workout is
+never touched. No new capability, data, or permission change, and still no background
 audio.
-
-SINCE THE 1.1 NOTES: 1.2 added optional exercise names, typed freely or picked from a
-built-in list of about 40 movements. 1.3 fixed the countdown beeps when a third-party
-music app is active. 1.4 rebuilt the workout screen to be readable from a distance, with
-the progress ring spanning the full width and every text size deriving from its
-diameter.
 
 HOW TO TEST: no setup required. The workouts list is empty on first launch. At the top
 of the "Séances" (Workouts) tab, tap the "Suggestions du chef" row (fork-and-knife icon)
-to open five ready-made workouts, then tap any row — e.g. "Tabata" (20 s work / 10 s
-rest, 8 exercises, 1 round, each exercise named) or "HIIT Full Body" (40 s work / 20 s
-rest, 5 exercises, 3 rounds, 30 s recovery between rounds) — to add it to your workouts.
+to open five ready-made workouts, then tap any row, e.g. "Tabata" (20 s/10 s, 8
+exercises) or "HIIT Full Body" (40 s/20 s, 5 exercises, 3 rounds) — to add it to your
+workouts.
 
 Tap the workout row you just added, in the "Séances" tab, to open the timer, then tap the
 central play button. The screen turns orange for a 10-second "Préparation" (get ready)
@@ -56,18 +48,13 @@ and tap the orange "Modifier" (Edit), or long-press the row. Note that a full ri
 left swipe deletes the workout. The "Historique" (History) tab shows completed workouts,
 an activity chart and totals.
 
-LANGUAGE: the interface is French-only. Glossary — Séances = Workouts, Historique =
-History, Nouvelle séance = New workout, Modifier = Edit, Supprimer = Delete, Nom de la
-séance = Workout name, Durée totale = Total duration, Préparation = Get ready, Travail =
-Work, Repos = Rest, Exercices = Exercises (sets), Rounds = Rounds, Réinit. du round =
-Round recovery, Choisir les exercices = Choose exercises, Récents = Recently used,
-Effacer le nom = Clear name, Exercice 1 = Exercise 1, Aucune / Aucun = None, Enregistrer
-= Save, Annuler = Cancel, Effort = Work phase, Récupération = Recovery phase, Ensuite =
-Up next, Fin de séance = End of workout, Séance terminée ! = Workout complete!, Aucune
-séance enregistrée = No workouts recorded yet.
+LANGUAGE: the interface is French-only. Key terms — Séances = Workouts, Historique =
+History, Préparation = Get ready, Travail = Work, Repos = Rest, Réinit. du round = Round
+recovery, Choisir les exercices = Choose exercises, Récents = Recently used, Effort =
+Work phase, Récupération = Recovery phase, Ensuite = Up next, Séance terminée ! =
+Workout complete!, Aucune séance enregistrée = No workouts recorded yet.
 
-This release (1.6) was verified on iOS Simulator only, including a fresh install and an
-upgrade from a 1.5 store already containing the two old default workouts. It does not
-touch audio, background execution, or any permission-adjacent code, so the physical-device
-verification of that behavior from the 1.5 submission (iPhone 16 Pro, iOS 26.6) still
-applies. iPhone-only, portrait-only, minimum iOS 26.4.
+This release (1.6) was verified on iOS Simulator only (fresh install and upgrade from a
+1.5 store with the two old default workouts). It does not touch audio, background
+execution, or permissions — the iPhone 16 Pro / iOS 26.6 device verification from the
+1.5 submission still applies there. iPhone-only, portrait-only, minimum iOS 26.4.
