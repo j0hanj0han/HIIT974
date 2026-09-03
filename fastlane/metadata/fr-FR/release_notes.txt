@@ -1,3 +1,3 @@
-Le décompte des trois dernières secondes ne se décale plus quand une autre app audio joue en même temps, ni quand le téléphone est occupé : les bips et le signal de changement de phase tombent exactement à l'heure.
+Les deux séances imposées par défaut (Tabata, HIIT Full Body) ont été retirées : la liste des séances est vide à l'installation.
 
-Un appel entrant ou un changement de casque (AirPods, Bluetooth) ne coupe plus le son de la séance en cours.
+À la place, un dossier « Suggestions du chef » propose cinq séances prêtes à l'emploi (Tabata, HIIT Full Body, Cardio Débutant, EMOM Express, Gainage Intense) — un tap suffit pour en ajouter une à ses séances.

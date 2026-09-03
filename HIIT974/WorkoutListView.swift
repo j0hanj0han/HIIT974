@@ -101,17 +101,23 @@ struct WorkoutListView: View {
                     || args.contains("-screenshotEditorNames")
                 // Sans séance seedée par défaut, la liste peut être vide sur un simulateur
                 // fraîchement installé : ces captures ont besoin d'une séance concrète.
-                if needsScreenshotData && workouts.isEmpty {
-                    context.insert(WorkoutSuggestions.catalog[0].makeWorkout())
+                // On garde une référence directe à l'objet inséré plutôt que de relire
+                // `workouts` (le @Query) juste après : son rafraîchissement n'est pas
+                // garanti synchrone dans le même passage d'onAppear.
+                var screenshotWorkout = workouts.first
+                if needsScreenshotData && screenshotWorkout == nil {
+                    let seeded = WorkoutSuggestions.catalog[0].makeWorkout()
+                    context.insert(seeded)
+                    screenshotWorkout = seeded
                 }
                 if args.contains("-screenshotRun") {
-                    screenshotRunWorkout = workouts.first
+                    screenshotRunWorkout = screenshotWorkout
                 }
                 // Deux captures d'éditeur : la structure de la séance, puis la liste
                 // des noms. Une séance existante plutôt qu'un formulaire vide, sinon les
                 // paramètres et les noms seraient vides.
                 if args.contains("-screenshotEditor") || args.contains("-screenshotEditorNames") {
-                    activeSheet = workouts.first.map { .edit($0) } ?? .create
+                    activeSheet = screenshotWorkout.map { .edit($0) } ?? .create
                 }
                 #endif
             }
