@@ -5,14 +5,29 @@ struct WorkoutListView: View {
     @Query(sort: \Workout.createdAt, order: .forward) private var workouts: [Workout]
     @Environment(\.modelContext) private var context
     @State private var activeSheet: SheetMode?
+    /// Nettoyage des deux séances par défaut auto-insérées par les versions précédentes :
+    /// ne doit se déclencher qu'une fois, pour ne jamais menacer une séance que
+    /// l'utilisateur recréerait plus tard à l'identique d'une ancienne valeur par défaut.
+    @AppStorage("legacySeedCleanupDone") private var legacySeedCleanupDone = false
     #if DEBUG
     @State private var screenshotRunWorkout: Workout?
     #endif
 
+    /// Suggestions du catalogue pas encore reprises par l'utilisateur (comparaison du nom
+    /// insensible à la casse et aux accents, même principe qu'`ExerciseCatalog`).
+    private var visibleSuggestions: [WorkoutSuggestions.Suggestion] {
+        let existing = Set(workouts.map { normalizedName($0.name) })
+        return WorkoutSuggestions.catalog.filter { !existing.contains(normalizedName($0.name)) }
+    }
+
+    private func normalizedName(_ name: String) -> String {
+        name.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+    }
+
     var body: some View {
         NavigationStack {
             Group {
-                if workouts.isEmpty {
+                if workouts.isEmpty && visibleSuggestions.isEmpty {
                     ContentUnavailableView(
                         "Aucune séance",
                         systemImage: "figure.run",
@@ -20,24 +35,38 @@ struct WorkoutListView: View {
                     )
                 } else {
                     List {
-                        ForEach(workouts) { workout in
+                        if !visibleSuggestions.isEmpty {
                             NavigationLink {
-                                RunView(workout: workout)
+                                WorkoutSuggestionsView(suggestions: visibleSuggestions) { suggestion in
+                                    context.insert(suggestion.makeWorkout())
+                                }
                             } label: {
-                                WorkoutRowView(workout: workout)
+                                Label("Suggestions du chef", systemImage: "fork.knife")
+                                    .badge(visibleSuggestions.count)
                             }
-                            // Trois affordances pour l'édition : le swipe depuis le bord
-                            // gauche seul était introuvable.
-                            .swipeActions(edge: .trailing) {
-                                deleteButton(for: workout)   // en 1er : conserve le full-swipe
-                                editButton(for: workout).tint(.orange)
-                            }
-                            .swipeActions(edge: .leading) {
-                                editButton(for: workout).tint(.orange)
-                            }
-                            .contextMenu {
-                                editButton(for: workout)
-                                deleteButton(for: workout)
+                        }
+                        if !workouts.isEmpty {
+                            Section("Mes séances") {
+                                ForEach(workouts) { workout in
+                                    NavigationLink {
+                                        RunView(workout: workout)
+                                    } label: {
+                                        WorkoutRowView(workout: workout)
+                                    }
+                                    // Trois affordances pour l'édition : le swipe depuis le bord
+                                    // gauche seul était introuvable.
+                                    .swipeActions(edge: .trailing) {
+                                        deleteButton(for: workout)   // en 1er : conserve le full-swipe
+                                        editButton(for: workout).tint(.orange)
+                                    }
+                                    .swipeActions(edge: .leading) {
+                                        editButton(for: workout).tint(.orange)
+                                    }
+                                    .contextMenu {
+                                        editButton(for: workout)
+                                        deleteButton(for: workout)
+                                    }
+                                }
                             }
                         }
                     }
@@ -58,12 +87,23 @@ struct WorkoutListView: View {
                 }
             }
             .onAppear {
-                if workouts.isEmpty {
-                    Workout.samples.forEach { context.insert($0) }
+                if !legacySeedCleanupDone {
+                    for workout in workouts where WorkoutSuggestions.isLegacySeed(workout) {
+                        context.delete(workout)
+                    }
+                    legacySeedCleanupDone = true
                 }
                 #if DEBUG
                 // Deep-links capture d'écran.
                 let args = ProcessInfo.processInfo.arguments
+                let needsScreenshotData = args.contains("-screenshotRun")
+                    || args.contains("-screenshotEditor")
+                    || args.contains("-screenshotEditorNames")
+                // Sans séance seedée par défaut, la liste peut être vide sur un simulateur
+                // fraîchement installé : ces captures ont besoin d'une séance concrète.
+                if needsScreenshotData && workouts.isEmpty {
+                    context.insert(WorkoutSuggestions.catalog[0].makeWorkout())
+                }
                 if args.contains("-screenshotRun") {
                     screenshotRunWorkout = workouts.first
                 }
@@ -104,10 +144,10 @@ private enum SheetMode: Identifiable {
     case create
     case edit(Workout)
 
-    var id: Int {
+    var id: String {
         switch self {
-        case .create:       return 0
-        case .edit(let w):  return w.persistentModelID.hashValue
+        case .create:       return "create"
+        case .edit(let w):  return "edit-\(w.persistentModelID.hashValue)"
         }
     }
 }

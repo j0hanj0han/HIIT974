@@ -343,6 +343,10 @@ private struct ChronoText: View {
 
 #Preview {
     NavigationStack {
-        RunView(workout: Workout.samples[0])
+        RunView(workout: Workout(name: "Tabata",
+                                  workSeconds: 20, restSeconds: 10,
+                                  sets: 8, rounds: 1, resetSeconds: 0,
+                                  exerciseNames: ["Burpees", "Mountain climbers", "Squat jump", "Pompes",
+                                                  "Jumping jacks", "Planche", "Fentes sautées", "Crunchs"]))
     }
 }

@@ -50,17 +50,4 @@ extension Workout {
         let name = exerciseNames[setIndex - 1]
         return name.isEmpty ? nil : name
     }
-
-    static var samples: [Workout] {
-        [
-            Workout(name: "Tabata",
-                    workSeconds: 20, restSeconds: 10,
-                    sets: 8, rounds: 1, resetSeconds: 0,
-                    exerciseNames: ["Burpees", "Mountain climbers", "Squat jump", "Pompes",
-                                    "Jumping jacks", "Planche", "Fentes sautées", "Crunchs"]),
-            Workout(name: "HIIT Full Body",
-                    workSeconds: 40, restSeconds: 20,
-                    sets: 5, rounds: 3, resetSeconds: 30),
-        ]
-    }
 }
