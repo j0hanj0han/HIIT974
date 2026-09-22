@@ -106,7 +106,7 @@ struct RunView: View {
                 Spacer(minLength: 8)
 
                 if let step = engine.currentStep {
-                    VStack(spacing: 24) {
+                    VStack(spacing: 20) {
                         exerciseBadge(step)
 
                         RingTimer(engine: engine,
@@ -173,26 +173,36 @@ struct RunView: View {
     // MARK: - Next step
 
     private var nextStepRow: some View {
-        HStack(spacing: 6) {
-            Text("Ensuite :")
-                .foregroundStyle(.white.opacity(0.65))
+        HStack(spacing: 0) {
             if let next = engine.nextStep {
-                Image(systemName: next.phase.systemImage)
-                    .foregroundStyle(.white.opacity(0.9))
-                Text(next.displayLabel)
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
-                Text("·").foregroundStyle(.white.opacity(0.65))
-                Text(segDurationLabel(next.durationSeconds))
-                    .foregroundStyle(.white)
+                VStack(alignment: .leading, spacing: 6) {
+                    // `Label` aligne nativement l'icône sur le texte, contrairement à un
+                    // `Image` + `VStack` séparés qui se retrouvait centré entre les deux
+                    // lignes (nom + durée) plutôt que sur le nom. Verre dépoli (pas de blanc
+                    // opaque comme `exerciseBadge`) : la séance en cours doit rester la seule
+                    // bulle pleinement affirmée à l'écran, celle-ci n'est qu'un aperçu.
+                    Label(next.displayLabel, systemImage: "forward.fill")
+                        .font(.system(size: 34, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.55)
+                        .padding(.horizontal, 22)
+                        .padding(.vertical, 10)
+                        .glassEffect(.regular, in: Capsule())
+
+                    Text(segDurationLabel(next.durationSeconds))
+                        .font(.system(size: 17, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.65))
+                        .padding(.leading, 22)
+                }
             } else {
-                Text("Fin de séance").foregroundStyle(.white.opacity(0.65))
+                Text("Fin de séance")
+                    .font(.system(size: 20, weight: .medium, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.65))
             }
-            Spacer()
+
+            Spacer(minLength: 0)
         }
-        .font(.system(size: 20, weight: .medium, design: .rounded))
-        .lineLimit(1)
-        .minimumScaleFactor(0.7)
     }
 
     // MARK: - Controls
