@@ -1,3 +1,1 @@
-Les deux séances imposées par défaut (Tabata, HIIT Full Body) ont été retirées : la liste des séances est vide à l'installation.
-
-À la place, un dossier « Suggestions du chef » propose cinq séances prêtes à l'emploi (Tabata, HIIT Full Body, Cardio Débutant, EMOM Express, Gainage Intense) — un tap suffit pour en ajouter une à ses séances.
+L'exercice suivant s'affiche désormais en grand, comme l'exercice en cours, avec une icône plus lisible pour repérer la suite de la séance d'un coup d'œil.

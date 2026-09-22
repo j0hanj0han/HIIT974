@@ -18,13 +18,11 @@ integration is present. The app plays nothing in the background or on the lock s
 by design, following the 2.5.4 feedback on version 1.0. The workout screen keeps the
 display awake so the timer stays visible.
 
-WHAT'S NEW IN 1.6: the two workouts force-created on first launch ("Tabata", "HIIT Full
-Body") are gone. A "Suggestions du chef" folder now offers five ready-made workouts (the
-original two plus three new ones); the user adds one with a single tap, nothing is
-created automatically. Existing installs that had the two old defaults, untouched, get
-them removed once on first launch after the update — a renamed or edited workout is
-never touched. No new capability, data, or permission change, and still no background
-audio.
+WHAT'S NEW IN 1.6.1: purely visual polish on the workout timer screen, no logic change.
+The upcoming-exercise preview (below the progress ring) now shows the next exercise name
+at the same large size as the current exercise badge above the ring, in a translucent
+pill, with a standard "skip to next" icon instead of a small arrow and text prefix. No
+new capability, data, or permission change, and still no background audio.
 
 HOW TO TEST: no setup required. The workouts list is empty on first launch. At the top
 of the "Séances" (Workouts) tab, tap the "Suggestions du chef" row (fork-and-knife icon)
@@ -54,7 +52,8 @@ recovery, Choisir les exercices = Choose exercises, Récents = Recently used, Ef
 Work phase, Récupération = Recovery phase, Ensuite = Up next, Séance terminée ! =
 Workout complete!, Aucune séance enregistrée = No workouts recorded yet.
 
-This release (1.6) was verified on iOS Simulator only (fresh install and upgrade from a
-1.5 store with the two old default workouts). It does not touch audio, background
-execution, or permissions — the iPhone 16 Pro / iOS 26.6 device verification from the
-1.5 submission still applies there. iPhone-only, portrait-only, minimum iOS 26.4.
+This release (1.6.1) was verified on iOS Simulator only (iPhone 17e, the smallest
+simulator at the 26.4 deployment target), including with a long exercise name in the
+upcoming-exercise preview. It does not touch audio, background execution, timer logic,
+or permissions — the iPhone 16 Pro / iOS 26.6 device verification from the 1.5
+submission still applies there. iPhone-only, portrait-only, minimum iOS 26.4.
