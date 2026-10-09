@@ -329,12 +329,13 @@ de la version marketing et la rédaction des notes, le test sur device, et la re
       `legacySeedCleanupDone`).
 - [x] v1.6.1 (build 11) — l'exercice suivant s'affiche dans un badge aussi grand que
       l'exercice en cours. En vente depuis (vérifié par `fastlane status` le 2026-10-09).
-- [ ] v1.7 — onboarding en 5 pages illustrées de vraies captures (montré aussi aux
-      utilisateurs existants), suggestions du chef déplacées dans le menu du bouton `+`.
+- [x] v1.7 (build 12) — onboarding en 5 pages illustrées de vraies captures (montré aussi
+      aux utilisateurs existants), suggestions du chef déplacées dans le menu du bouton `+`.
       Au passage : le graphique de la capture `05-historique.png`, vide en ligne depuis
       la 1.6, est rempli (historique de démo réinitialisé sous `-screenshotHistory`).
-      Vérifié sur simulateur, y compris en mise à jour depuis la 1.6.1. **Reste** :
-      `beta` → test sur iPhone réel → `verify` → `release`.
+      Vérifiée sur simulateur (y compris en mise à jour depuis la 1.6.1) puis sur iPhone
+      réel via TestFlight. Soumise le 2026-10-09, **captures renvoyées** : aucune course
+      dans le log, `screenshots_status` = 5 captures distinctes.
 
 > **Onboarding (v1.7)** : `OnboardingView`, 5 pages en `TabView(.page)`.
 > - **Déclenchement** : `@AppStorage("onboardingVersionSeen") < OnboardingView.currentVersion`,
