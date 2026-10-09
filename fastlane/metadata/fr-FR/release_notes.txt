@@ -1,1 +1,3 @@
-L'exercice suivant s'affiche désormais en grand, comme l'exercice en cours, avec une icône plus lisible pour repérer la suite de la séance d'un coup d'œil.
+Nouveau : une présentation en cinq écrans fait le tour de l'app au premier lancement. Si tu avais déjà l'app, elle s'affiche une fois après la mise à jour. Chaque écran montre une vraie vue de l'app et le bouton à retenir : séance en cours, réglages, signaux sonores, suggestions du chef, historique.
+
+Les suggestions du chef passent dans le bouton + : il propose de créer une séance vierge ou d'ajouter en un tap l'une des cinq séances toutes prêtes. La liste des séances ne montre plus que les tiennes.

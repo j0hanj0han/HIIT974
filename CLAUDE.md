@@ -32,7 +32,11 @@ Réimplémentation *from scratch* inspirée fonctionnellement de "Interval Timer
 - `AudioCueManager` (`@MainActor`) — session audio, vocabulaire sonore et ducking.
 - `ExerciseCatalog` — suggestions de noms d'exercices. Constante (catalogue intégré) +
   noms personnels **recalculés à la volée** depuis les séances : aucune entité SwiftData.
+- `WorkoutSuggestions` — les « Suggestions du chef » : 5 séances toutes prêtes, constante
+  non persistée. Proposées dans le menu du bouton `+` de `WorkoutListView` (v1.7) ; une
+  suggestion ajoutée devient une séance ordinaire et disparaît du menu.
 - Vues : `WorkoutListView` → `WorkoutEditorView` → `RunView`, + `HistoryView`.
+  `OnboardingView` s'intercale à la racine au premier lancement (cf. « Onboarding »).
 
 ## Modèle de données
 Modèle **plat** (pas de liste de segments éditable) : une séance est six nombres.
@@ -180,7 +184,7 @@ métadonnées et des captures ; App Store Connect n'est plus saisi à la main.
 
 | Lane | Fait quoi |
 |---|---|
-| `fastlane screenshots` | capture les 5 écrans sur simulateur → `fastlane/screenshots/fr-FR/`, recopie vers `en-US/` |
+| `fastlane screenshots` | capture les 5 écrans sur simulateur → `fastlane/screenshots/fr-FR/`, puis en recopie 4, réduites, dans `Assets.xcassets` pour l'onboarding |
 | `fastlane pull` | rapatrie les métadonnées **publiées** depuis ASC — **écrase** `fastlane/metadata/` |
 | `fastlane bump` | `CURRENT_PROJECT_VERSION` = dernier build sur ASC + 1 |
 | `fastlane build` | archive Release + export `.ipa` signé app-store dans `build/` |
@@ -212,6 +216,10 @@ pas un champ vide — ça republie silencieusement le texte de la version d'avan
    Sans gravité (rien de faux n'y était, et la section audio restait exacte), mais le
    reviewer a lu la version précédente. `deliver` repousse ce fichier à **chaque**
    release : ce qui est dans le repo part chez Apple, à jour ou non.
+   Exception à « stable » : le mode d'emploi (`HOW TO TEST`) décrit le parcours réel. Dès
+   qu'une version change ce parcours, il devient faux s'il n'est pas réécrit — c'est
+   arrivé en 1.6 (seed retiré) et en 1.7 (onboarding, suggestions passées dans le `+`).
+   Plafond Apple : **4000 caractères** pour tout le fichier.
 
 - **Authentification** : clé API App Store Connect (`.p8`), jamais l'Apple ID. Les trois
   valeurs vivent dans `fastlane/.env`, git-ignoré — voir `fastlane/.env.example`. Ne
@@ -314,6 +322,40 @@ de la version marketing et la rédaction des notes, le test sur device, et la re
       Spotify actif. Soumise le 2026-09-02, captures non renvoyées
       (`release skip_screenshots:true`) : ASC recopie celles de la version
       précédente, et ne rien envoyer supprime la course qui les avait dupliquées.
+- [x] v1.6 (build 10) — les deux séances auto-insérées au premier lancement sont
+      remplacées par un dossier « Suggestions du chef » (5 séances, ajout d'un tap).
+      Nettoyage ponctuel des anciennes séances par défaut, seulement si tous leurs champs
+      sont restés identiques (`WorkoutSuggestions.isLegacySeed`, clé
+      `legacySeedCleanupDone`).
+- [x] v1.6.1 (build 11) — l'exercice suivant s'affiche dans un badge aussi grand que
+      l'exercice en cours. En vente depuis (vérifié par `fastlane status` le 2026-10-09).
+- [x] v1.7 (build 12) — onboarding en 5 pages illustrées de vraies captures (montré aussi
+      aux utilisateurs existants), suggestions du chef déplacées dans le menu du bouton `+`.
+      Au passage : le graphique de la capture `05-historique.png`, vide en ligne depuis
+      la 1.6, est rempli (historique de démo réinitialisé sous `-screenshotHistory`).
+      Vérifiée sur simulateur (y compris en mise à jour depuis la 1.6.1) puis sur iPhone
+      réel via TestFlight. Soumise le 2026-10-09, **captures renvoyées** : aucune course
+      dans le log, `screenshots_status` = 5 captures distinctes.
+
+> **Onboarding (v1.7)** : `OnboardingView`, 5 pages en `TabView(.page)`.
+> - **Déclenchement** : `@AppStorage("onboardingVersionSeen") < OnboardingView.currentVersion`,
+>   évalué dans `HIIT974App`. Les installations antérieures n'ont pas la clé, elle vaut
+>   donc 0 : elles voient l'onboarding comme les nouvelles, sans code dédié. Monter
+>   `currentVersion` le remontre à tout le monde.
+> - **Bascule à la racine** du `WindowGroup` (if/else + `.animation(value:)`), pas un
+>   `fullScreenCover` : pas d'animation de montée au lancement, et `WorkoutListView` n'est
+>   pas monté dessous (son `onAppear`, donc le nettoyage legacy, attend la fin).
+> - **Captures** : les imagesets `onboarding-run/-list/-editor/-history` sont écrits par
+>   la lane `screenshots` (`ONBOARDING_SCREENSHOTS` dans le `Fastfile`). Ne pas les
+>   retoucher à la main. Les repères pulsants sont des `CGRect` **normalisés**, mesurés
+>   sur les PNG 1320×2868 : si la mise en page d'un de ces écrans bouge, les recaler dans
+>   `OnboardingView.pages`, sinon l'anneau entoure le vide.
+> - **DEBUG** : tout argument `-screenshot*` désactive l'onboarding (le script de captures
+>   part d'un simulateur vierge, il recouvrirait les 5 écrans) ; `-showOnboarding` efface
+>   la clé au lancement ; `-onboardingPage N` ouvre la page N.
+> - Contraste : pas de verre sur les boutons. Sur ces fonds vifs, il tourne au pastel et
+>   le blanc n'y est plus lisible. Le bouton principal est blanc plein, avec la couleur
+>   de la page assombrie de 40 % (`mix(with: .black, by: 0.4)`).
 
 > **Note API** : `.textInputSuggestions` (autocomplétion sous un `TextField`) est
 > `@available(iOS, unavailable)` — macOS 15 uniquement. Le menu de suggestions est donc

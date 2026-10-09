@@ -38,7 +38,13 @@ struct HistoryView: View {
             .onAppear {
                 #if DEBUG
                 // Seed de démo pour les captures d'écran (DEBUG seulement).
-                guard runs.isEmpty else { return }
+                // En capture, on repart toujours d'un historique frais : celui d'une session
+                // précédente tombe hors des 7 jours du graphique, qui sortait vide.
+                if ProcessInfo.processInfo.arguments.contains("-screenshotHistory") {
+                    runs.forEach { context.delete($0) }
+                } else if !runs.isEmpty {
+                    return
+                }
                 WorkoutRun.demoRuns().forEach { context.insert($0) }
                 #endif
             }
