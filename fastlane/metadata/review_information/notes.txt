@@ -18,17 +18,17 @@ integration is present. The app plays nothing in the background or on the lock s
 by design, following the 2.5.4 feedback on version 1.0. The workout screen keeps the
 display awake so the timer stays visible.
 
-WHAT'S NEW IN 1.6.1: purely visual polish on the workout timer screen, no logic change.
-The upcoming-exercise preview (below the progress ring) now shows the next exercise name
-at the same large size as the current exercise badge above the ring, in a translucent
-pill, with a standard "skip to next" icon instead of a small arrow and text prefix. No
-new capability, data, or permission change, and still no background audio.
+WHAT'S NEW IN 1.7: a five-page introduction is shown once at launch, to new users and
+once to existing users after updating. Each page shows a real screenshot of the app with
+the key button circled. Only a local "seen" flag is stored. The "Suggestions du chef"
+ready-made workouts moved from a row on the workouts list into the "+" button menu. No
+new data, permission or network use, and still no background audio.
 
-HOW TO TEST: no setup required. The workouts list is empty on first launch. At the top
-of the "Séances" (Workouts) tab, tap the "Suggestions du chef" row (fork-and-knife icon)
-to open five ready-made workouts, then tap any row, e.g. "Tabata" (20 s/10 s, 8
-exercises) or "HIIT Full Body" (40 s/20 s, 5 exercises, 3 rounds) — to add it to your
-workouts.
+HOW TO TEST: no setup required. First launch shows the introduction: swipe, or tap
+"Suivant" (Next), "Passer" (Skip) or "C'est parti" (Let's go). The workouts list is then
+empty. Tap "+" (top right): the menu offers "Nouvelle séance" (New workout) and five
+ready-made "Suggestions du chef" workouts; tap one, e.g. "Tabata" (20 s/10 s, 8
+exercises), to add it to your workouts.
 
 Tap the workout row you just added, in the "Séances" tab, to open the timer, then tap the
 central play button. The screen turns orange for a 10-second "Préparation" (get ready)
@@ -37,8 +37,8 @@ is teal. The bottom controls are previous phase, play/pause and skip; the X at t
 right closes the timer. Beeps mark the last three seconds of each segment and the
 halfway point of work.
 
-Tap "+" to create a workout, set the durations and counts, then tap "Enregistrer"
-(Save). Inside the editor, "Choisir les exercices" (Choose exercises) opens a menu to
+In the "+" menu, "Nouvelle séance" opens the editor: set the durations and counts, then
+tap "Enregistrer" (Save). Inside the editor, "Choisir les exercices" (Choose exercises) opens a menu to
 name each exercise, either from the built-in list or by typing.
 
 To edit an existing workout: swipe a row from left to right, or swipe from right to left
@@ -50,10 +50,11 @@ LANGUAGE: the interface is French-only. Key terms — Séances = Workouts, Histo
 History, Préparation = Get ready, Travail = Work, Repos = Rest, Réinit. du round = Round
 recovery, Choisir les exercices = Choose exercises, Récents = Recently used, Effort =
 Work phase, Récupération = Recovery phase, Ensuite = Up next, Séance terminée ! =
-Workout complete!, Aucune séance enregistrée = No workouts recorded yet.
+Workout complete!, Aucune séance enregistrée = No workouts recorded yet, Suivant = Next,
+Passer = Skip, C'est parti = Let's go.
 
-This release (1.6.1) was verified on iOS Simulator only (iPhone 17e, the smallest
-simulator at the 26.4 deployment target), including with a long exercise name in the
-upcoming-exercise preview. It does not touch audio, background execution, timer logic,
-or permissions — the iPhone 16 Pro / iOS 26.6 device verification from the 1.5
+This release (1.7) was verified on iOS Simulator (iPhone 17 Pro and iPhone 17e, the
+smallest at the 26.4 deployment target), including an update over 1.6.1 with existing
+workouts and history kept intact. It does not touch audio, background execution, timer
+logic, or permissions — the iPhone 16 Pro / iOS 26.6 device verification from the 1.5
 submission still applies there. iPhone-only, portrait-only, minimum iOS 26.4.
