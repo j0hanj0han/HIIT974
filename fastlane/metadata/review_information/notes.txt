@@ -53,8 +53,8 @@ Work phase, Récupération = Recovery phase, Ensuite = Up next, Séance terminé
 Workout complete!, Aucune séance enregistrée = No workouts recorded yet, Suivant = Next,
 Passer = Skip, C'est parti = Let's go.
 
-This release (1.7) was verified on iOS Simulator (iPhone 17 Pro and iPhone 17e, the
-smallest at the 26.4 deployment target), including an update over 1.6.1 with existing
-workouts and history kept intact. It does not touch audio, background execution, timer
-logic, or permissions — the iPhone 16 Pro / iOS 26.6 device verification from the 1.5
-submission still applies there. iPhone-only, portrait-only, minimum iOS 26.4.
+This release (1.7) was tested on a physical iPhone with TestFlight build 12, and on iOS
+Simulator (iPhone 17 Pro and iPhone 17e, the smallest at the 26.4 deployment target),
+including an update over 1.6.1 with existing workouts and history kept intact. It does
+not touch audio, background execution, timer logic, or permissions. iPhone-only,
+portrait-only, minimum iOS 26.4.
