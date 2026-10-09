@@ -42,6 +42,18 @@ SCREENSHOT_SCRIPT_CANDIDATES = [
   File.expand_path("~/.claude/appstore-prep/scripts/capture-screenshots.sh")
 ].freeze
 
+# Captures reprises dans l'onboarding de l'app (OnboardingView) : recopiées dans le
+# catalogue d'assets à chaque `screenshots`, pour que l'onboarding montre toujours l'UI
+# de la version livrée. Réduites à 1600 px de haut, ce qui suffit pour la taille
+# affichée (environ 60 % de l'écran) et garde le bundle léger.
+ONBOARDING_SCREENSHOTS = {
+  "01-seance-en-cours.png"   => "onboarding-run",
+  "02-seances.png"           => "onboarding-list",
+  "03-editeur-structure.png" => "onboarding-editor",
+  "05-historique.png"        => "onboarding-history"
+}.freeze
+ONBOARDING_SCREENSHOT_HEIGHT = 1600
+
 # Racine du repo. Les lanes s'exécutent depuis fastlane/, or les scripts et la config
 # de captures raisonnent en chemins relatifs à la racine.
 def repo_root
@@ -119,6 +131,17 @@ platform :ios do
       FileUtils.cp_r(Dir.glob(File.join(source, "*.png")), target)
       UI.success("Captures recopiées vers #{locale}/")
     end
+
+    # Les `Contents.json` des imagesets sont versionnés : seuls les PNG sont réécrits.
+    # Les repères de l'onboarding sont en coordonnées relatives à la capture : si la
+    # mise en page d'un de ces écrans bouge, les recaler dans OnboardingView.swift.
+    ONBOARDING_SCREENSHOTS.each do |capture, imageset|
+      target_dir = File.join(repo_root, "HIIT974/Assets.xcassets", "#{imageset}.imageset")
+      UI.user_error!("Imageset manquant : #{target_dir}") unless Dir.exist?(target_dir)
+      sh("sips", "-Z", ONBOARDING_SCREENSHOT_HEIGHT.to_s, File.join(source, capture),
+         "--out", File.join(target_dir, "#{imageset}.png"), log: false)
+    end
+    UI.success("Captures de l'onboarding recopiées dans Assets.xcassets")
   end
 
   desc "Rapatrie les métadonnées publiées depuis ASC (ÉCRASE fastlane/metadata/)"

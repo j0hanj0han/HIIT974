@@ -27,45 +27,33 @@ struct WorkoutListView: View {
     var body: some View {
         NavigationStack {
             Group {
-                if workouts.isEmpty && visibleSuggestions.isEmpty {
+                if workouts.isEmpty {
                     ContentUnavailableView(
                         "Aucune séance",
                         systemImage: "figure.run",
-                        description: Text("Crée ta première séance avec le bouton +")
+                        description: Text("Touche + pour créer ta séance ou partir d'une suggestion du chef")
                     )
                 } else {
                     List {
-                        if !visibleSuggestions.isEmpty {
-                            NavigationLink {
-                                WorkoutSuggestionsView(suggestions: visibleSuggestions) { suggestion in
-                                    context.insert(suggestion.makeWorkout())
+                        Section("Mes séances") {
+                            ForEach(workouts) { workout in
+                                NavigationLink {
+                                    RunView(workout: workout)
+                                } label: {
+                                    WorkoutRowView(workout: workout)
                                 }
-                            } label: {
-                                Label("Suggestions du chef", systemImage: "fork.knife")
-                                    .badge(visibleSuggestions.count)
-                            }
-                        }
-                        if !workouts.isEmpty {
-                            Section("Mes séances") {
-                                ForEach(workouts) { workout in
-                                    NavigationLink {
-                                        RunView(workout: workout)
-                                    } label: {
-                                        WorkoutRowView(workout: workout)
-                                    }
-                                    // Trois affordances pour l'édition : le swipe depuis le bord
-                                    // gauche seul était introuvable.
-                                    .swipeActions(edge: .trailing) {
-                                        deleteButton(for: workout)   // en 1er : conserve le full-swipe
-                                        editButton(for: workout).tint(.orange)
-                                    }
-                                    .swipeActions(edge: .leading) {
-                                        editButton(for: workout).tint(.orange)
-                                    }
-                                    .contextMenu {
-                                        editButton(for: workout)
-                                        deleteButton(for: workout)
-                                    }
+                                // Trois affordances pour l'édition : le swipe depuis le bord
+                                // gauche seul était introuvable.
+                                .swipeActions(edge: .trailing) {
+                                    deleteButton(for: workout)   // en 1er : conserve le full-swipe
+                                    editButton(for: workout).tint(.orange)
+                                }
+                                .swipeActions(edge: .leading) {
+                                    editButton(for: workout).tint(.orange)
+                                }
+                                .contextMenu {
+                                    editButton(for: workout)
+                                    deleteButton(for: workout)
                                 }
                             }
                         }
@@ -75,7 +63,7 @@ struct WorkoutListView: View {
             .navigationTitle("Séances")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("", systemImage: "plus") { activeSheet = .create }
+                    addMenu
                 }
             }
             .sheet(item: $activeSheet) { mode in
@@ -126,6 +114,37 @@ struct WorkoutListView: View {
                 RunView(workout: workout)
             }
             #endif
+        }
+    }
+
+    // MARK: - Bouton +
+
+    /// Création vierge, ou reprise d'une suggestion du chef en un tap : les propositions du
+    /// catalogue vivent ici plutôt que dans la liste, où les séances de l'utilisateur
+    /// restent seules. Pas d'éditeur pour une suggestion — on la personnalise après coup,
+    /// via « Modifier », comme n'importe quelle séance.
+    private var addMenu: some View {
+        Menu {
+            Button("Nouvelle séance", systemImage: "square.and.pencil") { activeSheet = .create }
+            if !visibleSuggestions.isEmpty {
+                Section("Suggestions du chef") {
+                    ForEach(visibleSuggestions) { suggestion in
+                        Button {
+                            withAnimation { context.insert(suggestion.makeWorkout()) }
+                        } label: {
+                            // Le second `Text` devient le sous-titre de l'entrée de menu.
+                            Label {
+                                Text(suggestion.name)
+                                Text(suggestion.subtitle)
+                            } icon: {
+                                Image(systemName: suggestion.systemImage)
+                            }
+                        }
+                    }
+                }
+            }
+        } label: {
+            Label("Ajouter", systemImage: "plus")
         }
     }
 

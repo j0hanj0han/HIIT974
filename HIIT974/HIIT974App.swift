@@ -8,33 +8,70 @@ struct HIIT974App: App {
                                        category: "Storage")
 
     @State private var selection = 0
+    /// Absente chez les utilisateurs d'avant la 1.7, donc à 0 : ils voient l'onboarding
+    /// comme les nouveaux.
+    @AppStorage("onboardingVersionSeen") private var onboardingVersionSeen = 0
     private let container: ModelContainer
 
     init() {
         container = Self.makeContainer()
+        #if DEBUG
+        // Rejoue l'onboarding comme au premier lancement, sans réinstaller.
+        if ProcessInfo.processInfo.arguments.contains("-showOnboarding") {
+            UserDefaults.standard.removeObject(forKey: "onboardingVersionSeen")
+        }
+        #endif
+    }
+
+    private var needsOnboarding: Bool {
+        #if DEBUG
+        // Le script de captures part d'un simulateur vierge : l'onboarding recouvrirait
+        // tous les écrans.
+        if ProcessInfo.processInfo.arguments.contains(where: { $0.hasPrefix("-screenshot") }) {
+            return false
+        }
+        #endif
+        return onboardingVersionSeen < OnboardingView.currentVersion
     }
 
     var body: some Scene {
         WindowGroup {
-            TabView(selection: $selection) {
-                Tab("Séances", systemImage: "figure.run", value: 0) {
-                    WorkoutListView()
-                }
-                Tab("Historique", systemImage: "clock.arrow.circlepath", value: 1) {
-                    HistoryView()
+            // Bascule à la racine plutôt qu'un `fullScreenCover` : pas d'animation de montée
+            // au lancement, ni la liste entrevue en dessous.
+            Group {
+                if needsOnboarding {
+                    OnboardingView { onboardingVersionSeen = OnboardingView.currentVersion }
+                        .transition(.opacity)
+                } else {
+                    mainTabs
+                        .transition(.opacity)
                 }
             }
-            .tabBarMinimizeBehavior(.onScrollDown)
-            .onAppear {
-                #if DEBUG
-                // Permet d'ouvrir directement un onglet pour les captures d'écran.
-                if ProcessInfo.processInfo.arguments.contains("-screenshotHistory") {
-                    selection = 1
-                }
-                #endif
-            }
+            // Explicite plutôt qu'un `withAnimation` autour de l'écriture `@AppStorage`,
+            // dont la transaction n'est pas garantie jusqu'à la bascule.
+            .animation(.easeInOut(duration: 0.35), value: needsOnboarding)
         }
         .modelContainer(container)
+    }
+
+    private var mainTabs: some View {
+        TabView(selection: $selection) {
+            Tab("Séances", systemImage: "figure.run", value: 0) {
+                WorkoutListView()
+            }
+            Tab("Historique", systemImage: "clock.arrow.circlepath", value: 1) {
+                HistoryView()
+            }
+        }
+        .tabBarMinimizeBehavior(.onScrollDown)
+        .onAppear {
+            #if DEBUG
+            // Permet d'ouvrir directement un onglet pour les captures d'écran.
+            if ProcessInfo.processInfo.arguments.contains("-screenshotHistory") {
+                selection = 1
+            }
+            #endif
+        }
     }
 
     // MARK: - Store
